@@ -1,0 +1,332 @@
+{
+  "info": {
+    "name": "SIH 26162 Industrial Fire Detection",
+    "description": "API collection for SIH 2026 Problem Statement 26162.\nAI-Based Detection and Classification of Industrial Fires and Persistent Thermal Sources.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "health"]
+            },
+            "description": "Returns service status."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => { pm.expect(pm.response.code).to.equal(200); });",
+                  "pm.test('Response has success flag', () => { const json = pm.response.json(); pm.expect(json.success).to.be.true; });",
+                  "pm.test('Data contains status ok', () => { const json = pm.response.json(); pm.expect(json.data.status).to.equal('ok'); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Hotspots",
+      "item": [
+        {
+          "name": "List Hotspots",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/hotspots?region=delhi_ncr&limit=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "hotspots"],
+              "query": [
+                { "key": "region", "value": "delhi_ncr" },
+                { "key": "limit", "value": "50" }
+              ]
+            },
+            "description": "List hotspots with optional filters: startDate, endDate, minConfidence, bbox, region, limit."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => { pm.expect(pm.response.code).to.equal(200); });",
+                  "pm.test('Response has success flag', () => { pm.expect(pm.response.json().success).to.be.true; });",
+                  "pm.test('Response contains hotspots array', () => { pm.expect(pm.response.json().data.hotspots).to.be.an('array'); });",
+                  "if (pm.response.json().data.hotspots.length > 0) { pm.environment.set('hotspotId', pm.response.json().data.hotspots[0]._id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Hotspot Detail",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/hotspots/{{hotspotId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "hotspots", "{{hotspotId}}"]
+            },
+            "description": "Get complete hotspot details by ID."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => { pm.expect(pm.response.code).to.equal(200); });",
+                  "pm.test('Response has hotspot data', () => { const json = pm.response.json(); pm.expect(json.success).to.be.true; pm.expect(json.data).to.exist; });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Hotspot - Invalid ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/hotspots/invalid_id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "hotspots", "invalid_id"]
+            },
+            "description": "Test invalid ID handling."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400', () => { pm.expect(pm.response.code).to.equal(400); });",
+                  "pm.test('Response has error', () => { pm.expect(pm.response.json().success).to.be.false; });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Facilities",
+      "item": [
+        {
+          "name": "List Facilities",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/facilities?region=delhi_ncr",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "facilities"],
+              "query": [
+                { "key": "region", "value": "delhi_ncr" }
+              ]
+            },
+            "description": "List facilities with optional bbox, facilityType, region filters."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => { pm.expect(pm.response.code).to.equal(200); });",
+                  "pm.test('Response contains facilities', () => { pm.expect(pm.response.json().data.facilities).to.be.an('array'); });",
+                  "if (pm.response.json().data.facilities.length > 0) { pm.environment.set('facilityId', pm.response.json().data.facilities[0]._id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Nearby Facilities",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/facilities/nearby?longitude=77.0523&latitude=28.7975&radius=5000",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "facilities", "nearby"],
+              "query": [
+                { "key": "longitude", "value": "77.0523" },
+                { "key": "latitude", "value": "28.7975" },
+                { "key": "radius", "value": "5000" }
+              ]
+            },
+            "description": "Find facilities near Bawana Industrial Area."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => { pm.expect(pm.response.code).to.equal(200); });",
+                  "pm.test('Response contains facilities', () => { pm.expect(pm.response.json().data.facilities).to.be.an('array'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Nearby - Missing Params",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/facilities/nearby",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "facilities", "nearby"]
+            },
+            "description": "Test missing parameter validation."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400', () => { pm.expect(pm.response.code).to.equal(400); });",
+                  "pm.test('Response has error', () => { pm.expect(pm.response.json().success).to.be.false; });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Classification",
+      "item": [
+        {
+          "name": "Get Classification",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/classifications/{{hotspotId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "classifications", "{{hotspotId}}"]
+            },
+            "description": "Get classification result for a hotspot."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => { pm.expect(pm.response.code).to.equal(200); });",
+                  "pm.test('Classification has required fields', () => { const d = pm.response.json().data; pm.expect(d.predictedClass).to.exist; pm.expect(d.confidence).to.exist; pm.expect(d.classProbabilities).to.exist; pm.expect(d.persistenceScore).to.exist; pm.expect(d.anomalyScore).to.exist; pm.expect(d.explanation).to.be.an('array'); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Analytics",
+      "item": [
+        {
+          "name": "Summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/analytics/summary",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "analytics", "summary"]
+            },
+            "description": "Returns aggregate statistics."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => { pm.expect(pm.response.code).to.equal(200); });",
+                  "pm.test('Summary has classification counts', () => { const d = pm.response.json().data; pm.expect(d.classifications).to.exist; pm.expect(d.totalHotspots).to.be.a('number'); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Alerts",
+      "item": [
+        {
+          "name": "List Alerts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/alerts?status=open",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "alerts"],
+              "query": [
+                { "key": "status", "value": "open" }
+              ]
+            },
+            "description": "List alerts with optional severity, status, date filters."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => { pm.expect(pm.response.code).to.equal(200); });",
+                  "pm.test('Response contains alerts', () => { pm.expect(pm.response.json().data.alerts).to.be.an('array'); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Ingestion",
+      "item": [
+        {
+          "name": "FIRMS Ingestion",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sensor\": \"VIIRS_SNPP_NRT\",\n  \"dayRange\": 1\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ingestion/firms",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "ingestion", "firms"]
+            },
+            "description": "Trigger FIRMS data ingestion for Delhi NCR."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is successful', () => { pm.expect(pm.response.code).to.be.oneOf([200, 201, 503]); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

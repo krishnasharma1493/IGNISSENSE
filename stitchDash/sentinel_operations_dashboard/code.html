@@ -1,0 +1,447 @@
+<!DOCTYPE html><html class="dark" lang="en" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Sentinel-GIS Operational Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;900&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "inverse-on-surface": "#2d3133",
+                    "on-surface": "#e0e3e5",
+                    "on-error": "#690005",
+                    "agri": "#facc15",
+                    "on-surface-variant": "#c6c6cd",
+                    "on-secondary-fixed-variant": "#3a485c",
+                    "intelligence-blue": "#0f172a",
+                    "mining": "#a855f7",
+                    "primary-container": "#0f172a",
+                    "secondary-fixed": "#d5e3fd",
+                    "tertiary": "#b9c8de",
+                    "surface": "#101415",
+                    "outline": "#909097",
+                    "background": "#101415",
+                    "surface-dim": "#101415",
+                    "secondary": "#b9c7e0",
+                    "on-primary-fixed": "#131b2e",
+                    "secondary-container": "#3c4a5e",
+                    "surface-tint": "#bec6e0",
+                    "tertiary-fixed-dim": "#b9c8de",
+                    "gas-flare": "#f59e0b",
+                    "on-primary-container": "#798098",
+                    "surface-bright": "#363a3b",
+                    "on-background": "#e0e3e5",
+                    "on-tertiary-fixed-variant": "#39485a",
+                    "other-status": "#64748b",
+                    "on-error-container": "#ffdad6",
+                    "inverse-primary": "#565e74",
+                    "inverse-surface": "#e0e3e5",
+                    "shell-slate": "#1e293b",
+                    "on-primary": "#283044",
+                    "error-container": "#93000a",
+                    "on-tertiary": "#233143",
+                    "secondary-fixed-dim": "#b9c7e0",
+                    "primary-fixed-dim": "#bec6e0",
+                    "outline-variant": "#45464d",
+                    "on-secondary-fixed": "#0d1c2f",
+                    "primary": "#bec6e0",
+                    "on-secondary": "#233144",
+                    "surface-variant": "#323537",
+                    "surface-container-lowest": "#0b0f10",
+                    "tertiary-fixed": "#d4e4fa",
+                    "on-tertiary-fixed": "#0d1c2d",
+                    "surface-container": "#1d2022",
+                    "wildfire": "#fbbf24",
+                    "tertiary-container": "#081828",
+                    "industrial-fire": "#ef4444",
+                    "surface-container-high": "#272a2c",
+                    "primary-fixed": "#dae2fd",
+                    "on-secondary-container": "#abb9d2",
+                    "surface-container-low": "#191c1e",
+                    "error": "#ffb4ab",
+                    "on-primary-fixed-variant": "#3f465c",
+                    "surface-container-highest": "#323537",
+                    "on-tertiary-container": "#738296"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "base": "8px",
+                    "gutter": "16px",
+                    "margin-mobile": "16px",
+                    "xs": "4px",
+                    "margin-desktop": "32px",
+                    "sm": "8px",
+                    "xl": "32px",
+                    "lg": "24px",
+                    "md": "16px"
+            },
+            "fontFamily": {
+                    "headline-lg-mobile": ["Inter"],
+                    "metadata-sm": ["Inter"],
+                    "body-md": ["Inter"],
+                    "status-pill": ["Inter"],
+                    "kpi-value": ["Inter"],
+                    "label-md": ["Inter"],
+                    "display-xl": ["Inter"],
+                    "headline-lg": ["Inter"]
+            },
+            "fontSize": {
+                    "headline-lg-mobile": ["24px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "900"}],
+                    "metadata-sm": ["12px", {"lineHeight": "1.5", "letterSpacing": "0.02em", "fontWeight": "400"}],
+                    "body-md": ["16px", {"lineHeight": "1.6", "letterSpacing": "0", "fontWeight": "400"}],
+                    "status-pill": ["11px", {"lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                    "kpi-value": ["24px", {"lineHeight": "1.2", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                    "label-md": ["14px", {"lineHeight": "1.4", "letterSpacing": "0.01em", "fontWeight": "600"}],
+                    "display-xl": ["48px", {"lineHeight": "1.1", "letterSpacing": "-0.04em", "fontWeight": "900"}],
+                    "headline-lg": ["32px", {"lineHeight": "1.2", "letterSpacing": "-0.03em", "fontWeight": "900"}]
+            }
+          }
+        }
+      }
+    </script>
+<style>
+        body {
+            background-color: theme('colors.background');
+            color: theme('colors.on-background');
+        }
+        /* Custom scrollbar for dark mode */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: theme('colors.surface-container-lowest'); 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: theme('colors.surface-variant'); 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: theme('colors.outline-variant'); 
+        }
+        
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+    </style>
+</head>
+<body class="h-screen w-full overflow-hidden flex flex-col antialiased">
+<!-- TopNavBar (Shared Component) -->
+<header class="flex justify-between items-center w-full px-margin-desktop h-16 bg-intelligence-blue dark:bg-intelligence-blue border-b border-outline-variant z-50 flex-shrink-0">
+<div class="flex items-center gap-md">
+<div class="font-black tracking-tighter text-[18px] uppercase text-on-surface">Ignissense</div>
+<nav class="hidden md:flex ml-xl h-full items-center">
+<!-- Navigation Link -->
+<a class="h-full flex items-center px-4 text-primary font-bold border-b-2 border-primary transition-colors duration-200" href="#">
+<span class="font-label-md text-label-md">Delhi NCR</span>
+</a>
+</nav>
+</div>
+<div class="flex items-center gap-md">
+<!-- Trailing Icons -->
+<button class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-variant transition-colors duration-200">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-variant transition-colors duration-200">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+<!-- Profile Image -->
+<div class="ml-sm w-8 h-8 rounded-full overflow-hidden border border-outline-variant">
+<img alt="Analyst Profile" class="w-full h-full object-cover" data-alt="Close up professional portrait of a data analyst in a dark futuristic control room setting, wearing a dark headset, lit by blue screen glow, highly detailed, realistic, cinematic lighting, serious expression." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDt52Cbo4j6Xt1bOwvFhRd803LrdmgLsJDIbvyVgEDe6WuIpD_G5UrCtUTts7YmvKILrnxp8NDPVeUMg_yNLs5MgDdZIz62aD7_t-qXsxcHHSittINbKJlV0wMliJM-UWa72LGvi48XMSFdXjOPsq155PW1d06WeQ3EhGEpgk-FMF8LgW5iVNWqXN5Vb7SzRb5JPp0sgCgcUD4Jf_vu5Ozu9y9gmm0r6Gs3TiQnqe8926jn2fzO766VOw">
+</div>
+</div>
+</header>
+<div class="flex flex-1 overflow-hidden relative">
+<!-- SideNavBar (Shared Component) -->
+<nav class="hidden md:flex flex-col h-full py-lg px-md gap-base bg-intelligence-blue dark:bg-intelligence-blue border-r border-outline-variant w-64 flex-shrink-0 z-40 relative">
+<div class="mb-xl flex items-center gap-sm px-2"><div class="font-black tracking-tighter text-[18px] uppercase text-on-surface">Ignissense</div><div class=""><div class="font-label-md text-label-md text-on-surface font-black tracking-tight">Ignissense</div><div class="font-metadata-sm text-metadata-sm text-on-surface-variant">XGB v1 Active</div></div></div>
+<!-- Tabs -->
+<div class="flex-1 flex flex-col gap-sm">
+<a class="flex items-center gap-md px-3 py-2 text-primary bg-secondary-container rounded-lg font-label-md text-label-md scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="">Dashboard</span>
+</a>
+<a class="flex items-center gap-md px-3 py-2 text-on-surface-variant hover:bg-surface-container-highest rounded-lg font-label-md text-label-md scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="map">map</span>
+<span class="">GIS Map</span>
+</a>
+<a class="flex items-center gap-md px-3 py-2 text-on-surface-variant hover:bg-surface-container-highest rounded-lg font-label-md text-label-md scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="warning">warning</span>
+<span class="">Alerts</span>
+</a>
+<a class="flex items-center gap-md px-3 py-2 text-on-surface-variant hover:bg-surface-container-highest rounded-lg font-label-md text-label-md scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="analytics">analytics</span>
+<span class="">Analytics</span>
+</a>
+</div>
+<!-- CTA -->
+<button class="w-full mt-auto mb-md py-2 px-4 bg-error-container text-on-error-container rounded border border-error/30 font-label-md text-label-md hover:bg-error-container/80 transition-colors flex items-center justify-center gap-sm">
+<span class="material-symbols-outlined text-[18px]" data-icon="emergency">emergency</span>
+                Emergency Dispatch
+            </button>
+<!-- Footer Tabs -->
+<div class="flex flex-col gap-sm border-t border-outline-variant pt-md">
+<a class="flex items-center gap-md px-3 py-2 text-on-surface-variant hover:bg-surface-container-highest rounded-lg font-label-md text-label-md scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="help">help</span>
+<span class="">Support</span>
+</a>
+<a class="flex items-center gap-md px-3 py-2 text-on-surface-variant hover:bg-surface-container-highest rounded-lg font-label-md text-label-md scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="history">history</span>
+<span class="">Logs</span>
+</a>
+</div>
+</nav>
+<!-- Main Content Area -->
+<main class="flex-1 overflow-y-auto overflow-x-hidden relative flex flex-col p-margin-mobile md:p-margin-desktop gap-lg pb-24">
+<!-- Page Header -->
+<div class="flex flex-col gap-xs mb-md">
+<h1 class="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface">Thermal Intelligence — Delhi NCR</h1>
+<p class="font-body-md text-body-md text-on-surface-variant">Satellite-detected thermal activity overview.</p>
+</div>
+<!-- KPI Strip -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-md">
+<!-- KPI 1 -->
+<div class="bg-intelligence-blue border border-outline-variant rounded-lg p-md flex flex-col gap-sm">
+<div class="font-metadata-sm text-metadata-sm text-on-surface-variant uppercase tracking-wider">Total Hotspots</div>
+<div class="font-kpi-value text-kpi-value text-on-surface">1,492</div>
+<div class="font-metadata-sm text-metadata-sm text-error flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]" data-icon="trending_up">trending_up</span>
+                        +12% vs avg
+                    </div>
+</div>
+<!-- KPI 2: Critical Highlight -->
+<div class="bg-surface border border-industrial-fire/50 rounded-lg p-md flex flex-col gap-sm relative overflow-hidden group">
+<!-- Subtle glow effect -->
+<div class="absolute inset-0 bg-industrial-fire/10 pointer-events-none group-hover:bg-industrial-fire/20 transition-colors"></div>
+<div class="font-metadata-sm text-metadata-sm text-on-surface-variant uppercase tracking-wider flex items-center justify-between relative z-10">
+                        Industrial Fire Candidates
+                        <span class="material-symbols-outlined text-industrial-fire text-[16px]" data-icon="local_fire_department">local_fire_department</span>
+</div>
+<div class="font-kpi-value text-kpi-value text-industrial-fire relative z-10">34</div>
+<div class="font-metadata-sm text-metadata-sm text-industrial-fire/80 relative z-10">Critical Priority</div>
+</div>
+<!-- KPI 3: High Priority -->
+<div class="bg-surface border border-gas-flare/50 rounded-lg p-md flex flex-col gap-sm relative overflow-hidden">
+<div class="absolute inset-0 bg-gas-flare/10 pointer-events-none"></div>
+<div class="font-metadata-sm text-metadata-sm text-on-surface-variant uppercase tracking-wider flex items-center justify-between relative z-10">
+                        Anomalous Sources
+                        <span class="material-symbols-outlined text-gas-flare text-[16px]" data-icon="warning">warning</span>
+</div>
+<div class="font-kpi-value text-kpi-value text-gas-flare relative z-10">7</div>
+<div class="font-metadata-sm text-metadata-sm text-gas-flare/80 relative z-10">Investigation Required</div>
+</div>
+<!-- KPI 4 -->
+<div class="bg-intelligence-blue border border-outline-variant rounded-lg p-md flex flex-col gap-sm">
+<div class="font-metadata-sm text-metadata-sm text-on-surface-variant uppercase tracking-wider">Persistent Sources</div>
+<div class="font-kpi-value text-kpi-value text-on-surface">218</div>
+<div class="font-metadata-sm text-metadata-sm text-on-surface-variant">Known facilities / regular burns</div>
+</div>
+</div>
+<!-- Main Grid (70/30 Split) -->
+<div class="grid grid-cols-1 xl:grid-cols-3 gap-lg flex-1 min-h-[500px]">
+<!-- Left (70%): Live Situation Map -->
+<div class="xl:col-span-2 bg-surface-container border border-outline-variant rounded-lg overflow-hidden relative flex flex-col">
+<!-- Map Header overlay -->
+<div class="absolute top-4 left-4 z-10 glass-panel rounded-lg border border-slate-600/50 p-sm px-md flex items-center justify-between min-w-[250px]">
+<div class="flex items-center gap-sm">
+<span class="w-2 h-2 rounded-full bg-error animate-pulse"></span>
+<span class="font-label-md text-label-md text-on-surface">Live Situation Map</span>
+</div>
+</div>
+<!-- Map Tools Overlay -->
+<div class="absolute right-4 top-4 z-10 flex flex-col gap-xs">
+<button class="w-10 h-10 glass-panel rounded-xl border border-slate-600/50 text-on-surface hover:bg-white/10 flex items-center justify-center transition-colors">
+<span class="material-symbols-outlined" data-icon="layers">layers</span>
+</button>
+<button class="w-10 h-10 glass-panel rounded-xl border border-slate-600/50 text-on-surface hover:bg-white/10 flex items-center justify-center transition-colors">
+<span class="material-symbols-outlined" data-icon="my_location">my_location</span>
+</button>
+<button class="w-10 h-10 glass-panel rounded-xl border border-slate-600/50 text-on-surface hover:bg-white/10 flex items-center justify-center transition-colors mt-2">
+<span class="material-symbols-outlined" data-icon="add">add</span>
+</button>
+<button class="w-10 h-10 glass-panel rounded-xl border border-slate-600/50 text-on-surface hover:bg-white/10 flex items-center justify-center transition-colors">
+<span class="material-symbols-outlined" data-icon="remove">remove</span>
+</button>
+</div>
+<!-- Map Legend Overlay -->
+<div class="absolute bottom-4 left-4 z-10 glass-panel rounded-lg border border-slate-600/50 p-sm px-md flex flex-col gap-xs">
+<div class="font-metadata-sm text-metadata-sm text-on-surface-variant mb-1">Thermal Signatures</div>
+<div class="flex items-center gap-2">
+<div class="w-3 h-3 rounded-full bg-industrial-fire"></div>
+<span class="font-metadata-sm text-metadata-sm text-on-surface">Industrial</span>
+</div>
+<div class="flex items-center gap-2">
+<div class="w-3 h-3 rounded-full bg-wildfire"></div>
+<span class="font-metadata-sm text-metadata-sm text-on-surface">Wildfire</span>
+</div>
+<div class="flex items-center gap-2">
+<div class="w-3 h-3 rounded-full bg-gas-flare"></div>
+<span class="font-metadata-sm text-metadata-sm text-on-surface">Gas Flare</span>
+</div>
+</div>
+<!-- The Map Image itself -->
+<div class="w-full h-full bg-surface-dim relative">
+<img alt="Live Map" class="w-full h-full object-cover opacity-80" data-alt="A dark mode satellite map of the Delhi NCR region, showcasing terrain and urban infrastructure in deep dark slate and charcoal tones. The map is overlaid with glowing heat map data points indicating thermal anomalies; small glowing red, orange and yellow clusters indicating fires or industrial heat sources. High tech, precision geospatial intelligence UI style." data-location="Delhi NCR" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC8AcJxI80egvlOYcPAdHGg0uL7vR5I5l8UxxkwmMWsz4JBwN9CUOGfbtwsdjSPg2rW7C76kctqTfz516O_EWlqJ0hvX2QMbvAHiv0IsIWiPYS9apY7E67ts2DGegjYFusBotpoy3dNnHaCuj2-4i_IGFECtoxG794Reyir_cmj2FCktj4wwF9PY6-Am6f2vtTIxOD2AK1FWQucx1UK2SQNmXE0IwZZde4Srz1W_M11VsIvwzNpPlv5yw">
+</div>
+</div>
+<!-- Right (30%): Charts -->
+<div class="xl:col-span-1 flex flex-col gap-lg">
+<!-- Classification Distribution -->
+<div class="bg-intelligence-blue border border-outline-variant rounded-lg p-md flex-1 flex flex-col">
+<h3 class="font-label-md text-label-md text-on-surface mb-md">Classification Distribution</h3>
+<div class="flex-1 flex flex-col justify-center gap-4">
+<!-- Wildfire Bar -->
+<div class="flex flex-col gap-1">
+<div class="flex justify-between font-metadata-sm text-metadata-sm">
+<span class="text-on-surface-variant">Wildfire / Agricultural</span>
+<span class="text-on-surface">68%</span>
+</div>
+<div class="w-full h-2 bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-wildfire w-[68%] rounded-full"></div>
+</div>
+</div>
+<!-- Gas Flare Bar -->
+<div class="flex flex-col gap-1">
+<div class="flex justify-between font-metadata-sm text-metadata-sm">
+<span class="text-on-surface-variant">Gas Flare</span>
+<span class="text-on-surface">21%</span>
+</div>
+<div class="w-full h-2 bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-gas-flare w-[21%] rounded-full"></div>
+</div>
+</div>
+<!-- Industrial Bar -->
+<div class="flex flex-col gap-1">
+<div class="flex justify-between font-metadata-sm text-metadata-sm">
+<span class="text-on-surface-variant">Industrial Process</span>
+<span class="text-on-surface">8%</span>
+</div>
+<div class="w-full h-2 bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-industrial-fire w-[8%] rounded-full"></div>
+</div>
+</div>
+<!-- Mining/Other Bar -->
+<div class="flex flex-col gap-1">
+<div class="flex justify-between font-metadata-sm text-metadata-sm">
+<span class="text-on-surface-variant">Mining / Unknown</span>
+<span class="text-on-surface">3%</span>
+</div>
+<div class="w-full h-2 bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-mining w-[3%] rounded-full"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- 7-Day Detection Volume Placeholder (Simplified visual) -->
+<div class="bg-intelligence-blue border border-outline-variant rounded-lg p-md h-48 flex flex-col">
+<h3 class="font-label-md text-label-md text-on-surface mb-md">7-Day Detection Volume</h3>
+<div class="flex-1 flex items-end justify-between gap-2 px-2 pt-4 border-b border-l border-outline-variant relative">
+<!-- Y-axis rough labels -->
+<span class="absolute -left-1 -ml-4 top-0 font-metadata-sm text-metadata-sm text-on-surface-variant text-[10px]">300</span>
+<span class="absolute -left-1 -ml-4 bottom-0 font-metadata-sm text-metadata-sm text-on-surface-variant text-[10px]">0</span>
+<!-- Fake Bars -->
+<div class="w-full bg-secondary-container hover:bg-secondary transition-colors rounded-t-sm h-[40%]" title="Mon"></div>
+<div class="w-full bg-secondary-container hover:bg-secondary transition-colors rounded-t-sm h-[60%]" title="Tue"></div>
+<div class="w-full bg-secondary-container hover:bg-secondary transition-colors rounded-t-sm h-[85%]" title="Wed"></div>
+<div class="w-full bg-secondary-container hover:bg-secondary transition-colors rounded-t-sm h-[55%]" title="Thu"></div>
+<div class="w-full bg-secondary-container hover:bg-secondary transition-colors rounded-t-sm h-[70%]" title="Fri"></div>
+<div class="w-full bg-secondary-container hover:bg-secondary transition-colors rounded-t-sm h-[90%]" title="Sat"></div>
+<div class="w-full bg-primary hover:bg-primary-fixed transition-colors rounded-t-sm h-[100%]" title="Sun (Today)"></div>
+</div>
+<!-- X-axis rough labels -->
+<div class="flex justify-between mt-1 font-metadata-sm text-metadata-sm text-on-surface-variant text-[10px]">
+<span class="">Mon</span>
+<span class="">Today</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Bottom Table -->
+<div class="bg-intelligence-blue border border-outline-variant rounded-lg overflow-hidden flex flex-col">
+<div class="p-md border-b border-outline-variant flex justify-between items-center bg-surface-container-lowest">
+<h3 class="font-label-md text-label-md text-on-surface">Recent High-Confidence Candidates</h3>
+<button class="font-metadata-sm text-metadata-sm text-primary hover:text-primary-fixed transition-colors">View All</button>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface/50 border-b border-outline-variant/50">
+<th class="p-3 font-metadata-sm text-metadata-sm text-on-surface-variant font-medium">Timestamp (UTC)</th>
+<th class="p-3 font-metadata-sm text-metadata-sm text-on-surface-variant font-medium">Coordinates</th>
+<th class="p-3 font-metadata-sm text-metadata-sm text-on-surface-variant font-medium">Classification</th>
+<th class="p-3 font-metadata-sm text-metadata-sm text-on-surface-variant font-medium text-right">Confidence Score</th>
+</tr>
+</thead>
+<tbody class="font-body-md text-body-md text-on-surface text-[14px]">
+<tr class="border-b border-outline-variant/30 hover:bg-surface-variant/30 transition-colors">
+<td class="p-3 font-metadata-sm text-metadata-sm">2023-10-27 08:14:22</td>
+<td class="p-3 font-mono text-[13px] text-tertiary">28.6139° N, 77.2090° E</td>
+<td class="p-3">
+<span class="inline-flex items-center px-2 py-0.5 rounded font-status-pill text-status-pill bg-industrial-fire/20 text-industrial-fire border border-industrial-fire/30">
+                                        INDUSTRIAL
+                                    </span>
+</td>
+<td class="p-3 text-right text-industrial-fire font-semibold">98.4%</td>
+</tr>
+<tr class="border-b border-outline-variant/30 hover:bg-surface-variant/30 transition-colors">
+<td class="p-3 font-metadata-sm text-metadata-sm">2023-10-27 08:12:05</td>
+<td class="p-3 font-mono text-[13px] text-tertiary">28.5355° N, 77.3910° E</td>
+<td class="p-3">
+<span class="inline-flex items-center px-2 py-0.5 rounded font-status-pill text-status-pill bg-gas-flare/20 text-gas-flare border border-gas-flare/30">
+                                        ANOMALY
+                                    </span>
+</td>
+<td class="p-3 text-right text-gas-flare font-semibold">95.1%</td>
+</tr>
+<tr class="border-b border-outline-variant/30 hover:bg-surface-variant/30 transition-colors">
+<td class="p-3 font-metadata-sm text-metadata-sm">2023-10-27 07:45:11</td>
+<td class="p-3 font-mono text-[13px] text-tertiary">28.7041° N, 77.1025° E</td>
+<td class="p-3">
+<span class="inline-flex items-center px-2 py-0.5 rounded font-status-pill text-status-pill bg-wildfire/20 text-wildfire border border-wildfire/30">
+                                        WILDFIRE
+                                    </span>
+</td>
+<td class="p-3 text-right">89.2%</td>
+</tr>
+<tr class="hover:bg-surface-variant/30 transition-colors">
+<td class="p-3 font-metadata-sm text-metadata-sm">2023-10-27 07:30:00</td>
+<td class="p-3 font-mono text-[13px] text-tertiary">28.4595° N, 77.0266° E</td>
+<td class="p-3">
+<span class="inline-flex items-center px-2 py-0.5 rounded font-status-pill text-status-pill bg-industrial-fire/20 text-industrial-fire border border-industrial-fire/30">
+                                        INDUSTRIAL
+                                    </span>
+</td>
+<td class="p-3 text-right text-industrial-fire font-semibold">97.8%</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</main>
+</div>
+<!-- Footer (Shared Component) -->
+<footer class="fixed bottom-0 right-0 left-0 md:left-64 flex justify-between items-center px-lg py-xs bg-surface-container dark:bg-surface-container border-t border-outline-variant z-50">
+<div class="font-metadata-sm text-metadata-sm text-on-surface-variant dark:text-on-surface-variant">
+            Data Freshness: Real-time | Model: XGB v1.2
+        </div>
+<div class="flex items-center gap-md">
+<a class="font-metadata-sm text-metadata-sm text-on-surface-variant hover:text-primary transition-all" href="#">System Status</a>
+<a class="font-metadata-sm text-metadata-sm text-on-surface-variant hover:text-primary transition-all" href="#">API Documentation</a>
+<span class="font-label-md text-label-md text-on-surface ml-sm border-l border-outline-variant pl-sm">Ignissense</span>
+</div>
+</footer>
+
+
+</body></html>

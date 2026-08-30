@@ -1,0 +1,145 @@
+{
+  "model_name": "Ignissense Production XGBoost Multi-Class Classifier",
+  "version": "XGB-FIRMS-v1.0.0-DELHI_NCR",
+  "training_dataset_version": "NASA_FIRMS_OSM_CANONICAL_V1",
+  "label_generation_method": "weakly_supervised_heuristic_v1 (anchored in satellite telemetry and verified OSM perimeters)",
+  "split_method": "GroupShuffleSplit (0.1\u00b0 geographic grid block cross-validation, zero spatial leakage)",
+  "framework": "XGBoost 3.4.1",
+  "trained_at": "2026-08-30T09:29:50.332573",
+  "features": [
+    "frp",
+    "brightness",
+    "brightness_ti5",
+    "temp_delta_ti4_ti5",
+    "confidence",
+    "is_night",
+    "facility_distance_m",
+    "facility_type_encoded",
+    "landcover_encoded",
+    "nearby_cluster_count_3km",
+    "historical_recurrence_1_5km",
+    "historical_mean_frp",
+    "frp_z_score",
+    "days_since_last_detection"
+  ],
+  "classes": [
+    "industrial_fire",
+    "gas_flare",
+    "wildfire",
+    "agricultural_burning",
+    "mining_thermal_activity",
+    "other_or_uncertain"
+  ],
+  "metrics": {
+    "accuracy": 1.0,
+    "macro_f1": 1.0,
+    "weighted_f1": 1.0,
+    "macro_precision": 1.0,
+    "macro_recall": 1.0,
+    "log_loss": 0.0009
+  },
+  "per_class_metrics": {
+    "industrial_fire": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0,
+      "support": 404
+    },
+    "gas_flare": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0,
+      "support": 382
+    },
+    "wildfire": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0,
+      "support": 318
+    },
+    "agricultural_burning": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0,
+      "support": 671
+    },
+    "mining_thermal_activity": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0,
+      "support": 300
+    },
+    "other_or_uncertain": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0,
+      "support": 268
+    }
+  },
+  "confusion_matrix": [
+    [
+      404,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      382,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      318,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      671,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      300,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      0,
+      268
+    ]
+  ],
+  "feature_importances": {
+    "landcover_encoded": 0.1662,
+    "days_since_last_detection": 0.1466,
+    "facility_type_encoded": 0.1432,
+    "frp_z_score": 0.1101,
+    "frp": 0.1029,
+    "facility_distance_m": 0.1003,
+    "confidence": 0.0902,
+    "historical_recurrence_1_5km": 0.0792,
+    "historical_mean_frp": 0.029,
+    "nearby_cluster_count_3km": 0.0211,
+    "temp_delta_ti4_ti5": 0.0043,
+    "is_night": 0.0036,
+    "brightness_ti5": 0.0023,
+    "brightness": 0.0011
+  }
+}

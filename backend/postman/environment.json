@@ -1,0 +1,25 @@
+{
+  "id": "sih26162-dev",
+  "name": "SIH 26162 - Development",
+  "values": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "hotspotId",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "facilityId",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    }
+  ],
+  "_postman_variable_scope": "environment"
+}

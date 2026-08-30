@@ -1,0 +1,44 @@
+{
+  "name": "sih26162-backend",
+  "version": "1.0.0",
+  "description": "SIH 26162 - Industrial Fire Detection Backend",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src/",
+    "seed": "tsx src/scripts/seed.ts",
+    "ingest:live": "tsx src/scripts/syncFirmsLive.ts"
+  },
+  "keywords": [
+    "sih",
+    "firms",
+    "fire-detection",
+    "gis"
+  ],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "axios": "^1.19.0",
+    "cors": "^2.8.6",
+    "csv-parse": "^7.0.2",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.6.2",
+    "helmet": "^8.3.0",
+    "mongoose": "^9.9.3",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.2.0",
+    "eslint": "^10.9.0",
+    "mongodb-memory-server": "^11.2.0",
+    "tsx": "^4.23.12",
+    "typescript": "^7.0.2"
+  }
+}

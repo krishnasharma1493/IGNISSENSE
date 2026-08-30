@@ -1,0 +1,50 @@
+# Environment variables & Secrets
+.env
+.env.*
+*.env
+*.env.*
+!.env.example
+!.env.*.example
+
+# Secret keys, credentials & certificates
+*.pem
+*.key
+*.cert
+*.crt
+*.p12
+*.pfx
+*.pkcs12
+*credentials*.json
+*secret*.json
+service-account*.json
+firebase-adminsdk*.json
+
+# Dependencies
+node_modules/
+
+# Production build output
+dist/
+build/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# IDE & OS files
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

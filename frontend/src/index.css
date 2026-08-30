@@ -1,0 +1,366 @@
+@import "tailwindcss";
+
+@theme {
+  /* ── Surface & Background (Stitch GIS Command Map palette) ── */
+  --color-surface: #0e1417;
+  --color-surface-dim: #0e1417;
+  --color-surface-bright: #343a3e;
+  --color-surface-container-lowest: #090f12;
+  --color-surface-container-low: #171c20;
+  --color-surface-container: #1b2024;
+  --color-surface-container-high: #252b2e;
+  --color-surface-container-highest: #303639;
+  --color-on-surface: #dee3e8;
+  --color-on-surface-variant: #bcc8d0;
+  --color-inverse-surface: #dee3e8;
+  --color-inverse-on-surface: #2b3135;
+  --color-outline: #87929a;
+  --color-outline-variant: #3d484f;
+  --color-surface-tint: #70d2ff;
+  --color-surface-variant: #303639;
+
+  /* ── Primary (Cyan / Ice Blue) ── */
+  --color-primary: #a1dfff;
+  --color-on-primary: #003547;
+  --color-primary-container: #38c8ff;
+  --color-on-primary-container: #00516b;
+  --color-primary-fixed: #c0e8ff;
+  --color-primary-fixed-dim: #70d2ff;
+  --color-inverse-primary: #006686;
+
+  /* ── Secondary (Tactical Green) ── */
+  --color-secondary: #91d963;
+  --color-on-secondary: #153800;
+  --color-secondary-container: #337400;
+  --color-on-secondary-container: #aef87e;
+  --color-secondary-fixed: #acf67c;
+  --color-secondary-fixed-dim: #91d963;
+
+  /* ── Tertiary (Warm Amber) ── */
+  --color-tertiary: #ffcd94;
+  --color-on-tertiary: #472a00;
+  --color-tertiary-container: #fca931;
+  --color-on-tertiary-container: #6a4100;
+  --color-tertiary-fixed: #ffddb8;
+  --color-tertiary-fixed-dim: #ffb95e;
+
+  /* ── Error ── */
+  --color-error: #ffb4ab;
+  --color-on-error: #690005;
+  --color-error-container: #93000a;
+  --color-on-error-container: #ffdad6;
+
+  /* ── Background ── */
+  --color-background: #0e1417;
+  --color-on-background: #dee3e8;
+
+  /* ── Classification Colors ── */
+  --color-industrial-fire: #ff4b4b;
+  --color-gas-flare: #f59e0b;
+  --color-wildfire: #fbbf24;
+  --color-agri: #facc15;
+  --color-mining: #a855f7;
+  --color-other-status: #64748b;
+
+  /* ── Legacy aliases ── */
+  --color-intelligence-blue: #0e1417;
+  --color-shell-slate: #1b2024;
+
+  /* ── Spacing ── */
+  --spacing-base: 8px;
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --spacing-gutter: 24px;
+  --spacing-margin-mobile: 16px;
+  --spacing-margin-desktop: 48px;
+
+  /* ── Typography ── */
+  --font-headline-lg-mobile: Inter, sans-serif;
+  --font-metadata-sm: Inter, sans-serif;
+  --font-body-md: Inter, sans-serif;
+  --font-status-pill: Inter, sans-serif;
+  --font-kpi-value: Inter, sans-serif;
+  --font-label-md: Inter, sans-serif;
+  --font-label-sm: 'JetBrains Mono', monospace;
+  --font-display-xl: Inter, sans-serif;
+  --font-headline-lg: Inter, sans-serif;
+  --font-headline-md: Inter, sans-serif;
+}
+
+/* ── Global Reset (macOS System Typography) ── */
+body {
+  background-color: #080c0e;
+  color: #dee3e8;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "SF Pro", "Inter", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Scrollbar (Subtle Optical Track) ── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.28); }
+
+/* ── macOS 26 LIQUID GLASS MATERIAL HIERARCHY ── */
+
+/* 1. Structural Surfaces (Sidebar, Top Navigation Bar) */
+.liquid-glass-structural,
+.glass-panel {
+  background: rgba(13, 18, 22, 0.68);
+  backdrop-filter: blur(24px) saturate(175%);
+  -webkit-backdrop-filter: blur(24px) saturate(175%);
+  border-top: 1px solid rgba(255, 255, 255, 0.22);
+  border-left: 1px solid rgba(255, 255, 255, 0.12);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 
+    0 16px 40px -6px rgba(0, 0, 0, 0.45),
+    0 4px 12px -2px rgba(0, 0, 0, 0.3),
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -1px 1px 0 rgba(0, 0, 0, 0.25);
+}
+
+/* 2. Interactive Surfaces (Search, Filter Pills, Map Tools, Controls) */
+.liquid-glass-interactive {
+  background: rgba(20, 26, 32, 0.58);
+  backdrop-filter: blur(18px) saturate(185%);
+  -webkit-backdrop-filter: blur(18px) saturate(185%);
+  border-top: 1px solid rgba(255, 255, 255, 0.25);
+  border-left: 1px solid rgba(255, 255, 255, 0.14);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  box-shadow: 
+    0 6px 20px -3px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.22),
+    inset 0 -1px 0 0 rgba(0, 0, 0, 0.2);
+  transition: 
+    transform 160ms cubic-bezier(0.23, 1, 0.32, 1),
+    background-color 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.liquid-glass-interactive:hover {
+  background: rgba(28, 36, 44, 0.70);
+  border-top-color: rgba(255, 255, 255, 0.35);
+  box-shadow: 
+    0 8px 24px -2px rgba(0, 0, 0, 0.42),
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+/* 3. Contextual Surfaces (Hotspot Inspector, Live Stream Drawer, Popovers) */
+.liquid-glass-contextual {
+  background: rgba(11, 15, 19, 0.76);
+  backdrop-filter: blur(28px) saturate(185%);
+  -webkit-backdrop-filter: blur(28px) saturate(185%);
+  border-top: 1px solid rgba(255, 255, 255, 0.28);
+  border-left: 1px solid rgba(255, 255, 255, 0.15);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 
+    0 24px 60px -8px rgba(0, 0, 0, 0.6),
+    0 8px 20px -3px rgba(0, 0, 0, 0.35),
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.25),
+    inset 0 -1px 1px 0 rgba(0, 0, 0, 0.3);
+  animation: liquid-materialize 220ms cubic-bezier(0.23, 1, 0.32, 1) forwards;
+}
+
+/* ── Apple-Style Tactile Button Behavior (Spring Motion) ── */
+.liquid-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: 
+    transform 160ms cubic-bezier(0.23, 1, 0.32, 1),
+    background-color 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.liquid-btn:active {
+  transform: scale(0.965);
+}
+
+/* ── Spatial Materialization (Panel Arrival from trigger point) ── */
+@keyframes liquid-materialize {
+  0% {
+    opacity: 0;
+    transform: scale(0.96) translateY(6px);
+    filter: blur(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    filter: blur(0px);
+  }
+}
+
+/* ── Typography Refinement (SF Pro Optical Kerning) ── */
+.sf-display {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro", system-ui, sans-serif;
+  letter-spacing: -0.025em;
+}
+
+.sf-headline {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro", system-ui, sans-serif;
+  letter-spacing: -0.015em;
+}
+
+.sf-subhead {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro", system-ui, sans-serif;
+  letter-spacing: -0.005em;
+}
+
+.sf-metadata {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro", system-ui, sans-serif;
+  letter-spacing: 0.035em;
+}
+
+/* ── Focus Glow for Inputs ── */
+.tech-border-glow:focus-within {
+  border-color: rgba(161, 223, 255, 0.6);
+  box-shadow: 
+    0 0 0 3px rgba(161, 223, 255, 0.15),
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+/* ── Critical Marker Pulse ── */
+.marker-pulse {
+  animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+}
+@keyframes pulse-ring {
+  0%   { transform: scale(0.8); box-shadow: 0 0 0 0 rgba(255, 75, 75, 0.7); }
+  70%  { transform: scale(1);   box-shadow: 0 0 0 20px rgba(255, 75, 75, 0); }
+  100% { transform: scale(0.8); box-shadow: 0 0 0 0 rgba(255, 75, 75, 0); }
+}
+
+.pulse-critical {
+  animation: pulse-red 2s infinite;
+}
+@keyframes pulse-red {
+  0%   { box-shadow: 0 0 0 0 rgba(255, 75, 75, 0.45); }
+  70%  { box-shadow: 0 0 0 8px rgba(255, 75, 75, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 75, 75, 0); }
+}
+
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+.animate-spin-slow { animation: spin-slow 4s linear infinite; }
+
+
+/* ── Typography Utilities ── */
+.font-headline-lg {
+  font-family: 'Inter', sans-serif;
+  font-size: 32px;
+  line-height: 1.2;
+  letter-spacing: -0.03em;
+  font-weight: 900;
+}
+.font-headline-lg-mobile {
+  font-family: 'Inter', sans-serif;
+  font-size: 24px;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  font-weight: 900;
+}
+.font-headline-md {
+  font-family: 'Inter', sans-serif;
+  font-size: 24px;
+  line-height: 1.3;
+  font-weight: 700;
+}
+.font-kpi-value {
+  font-family: 'Inter', sans-serif;
+  font-size: 24px;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  font-weight: 600;
+}
+.font-label-md {
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  line-height: 1.4;
+  letter-spacing: 0.01em;
+  font-weight: 600;
+}
+.font-label-sm {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  line-height: 1.4;
+  letter-spacing: 0.05em;
+  font-weight: 500;
+}
+.font-body-md {
+  font-family: 'Inter', sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+  font-weight: 400;
+}
+.font-body-lg {
+  font-family: 'Inter', sans-serif;
+  font-size: 18px;
+  line-height: 1.6;
+  font-weight: 400;
+}
+.font-metadata-sm {
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  line-height: 1.5;
+  letter-spacing: 0.02em;
+  font-weight: 400;
+}
+.font-status-pill {
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  line-height: 1;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
+/* ── MapLibre Map Container ── */
+.maplibregl-map {
+  width: 100%;
+  height: 100%;
+}
+
+/* ── MapLibre Popup Styling (macOS 26 Liquid Optical Lens) ── */
+.maplibregl-popup-content {
+  background: rgba(12, 16, 20, 0.78) !important;
+  backdrop-filter: blur(24px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.28) !important;
+  border-left: 1px solid rgba(255, 255, 255, 0.14) !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+  border-radius: 1.25rem !important;
+  padding: 14px 16px !important;
+  color: #dee3e8 !important;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif !important;
+  font-size: 12px !important;
+  box-shadow: 
+    0 20px 48px -6px rgba(0, 0, 0, 0.65),
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.22) !important;
+  min-width: 220px;
+}
+.maplibregl-popup-tip {
+  border-top-color: rgba(12, 16, 20, 0.78) !important;
+}
+.maplibregl-popup-close-button {
+  color: rgba(255, 255, 255, 0.6) !important;
+  font-size: 16px !important;
+  padding: 6px 10px !important;
+}
+.maplibregl-popup-close-button:hover {
+  color: #ffffff !important;
+  background: transparent !important;
+}
+
