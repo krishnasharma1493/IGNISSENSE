@@ -49,6 +49,29 @@ export interface Facility {
   region: string;
 }
 
+export interface OsmFeature {
+  _id: string;
+  sourceId: string;
+  osmId: number;
+  osmType: 'node' | 'way' | 'relation';
+  name: string;
+  featureCategory: 'industrial' | 'oil_gas' | 'mining' | 'power' | 'forest' | 'agriculture' | 'urban' | 'water' | 'other' | string;
+  featureSubcategory: string;
+  geometry: {
+    type: 'Point';
+    coordinates: [number, number];
+  };
+  latitude: number;
+  longitude: number;
+  industrialType?: string;
+  facilityType?: string;
+  landUse?: string;
+  naturalType?: string;
+  operator?: string;
+  distance_m?: number;
+  region?: string;
+}
+
 export interface Classification {
   _id: string;
   hotspotId: string;

@@ -108,11 +108,15 @@ export default function TopNavBar({
     <header className="absolute top-5 left-6 right-6 z-50 flex justify-between items-center liquid-glass-structural rounded-2xl px-6 h-16 pointer-events-auto">
       {/* Brand */}
       <div className="flex items-center gap-3.5">
-        <div className="w-8 h-8 rounded-xl liquid-glass-interactive flex items-center justify-center text-primary shadow-inner">
-          <span className="material-symbols-outlined text-[20px]">radar</span>
+        <div className="w-9 h-9 rounded-xl liquid-glass-interactive flex items-center justify-center p-1.5 shadow-inner border border-white/20 bg-slate-950/40">
+          <img
+            src="/logo-white.png"
+            alt="IGNISSENSE Logo"
+            className="w-full h-full object-contain filter drop-shadow-[0_0_8px_rgba(56,189,248,0.4)]"
+          />
         </div>
         <div>
-          <h1 className="sf-headline font-black text-on-surface tracking-tight text-sm leading-none">
+          <h1 className="sf-headline font-black text-on-surface tracking-tight text-sm leading-none flex items-center gap-1.5">
             IGNISSENSE
           </h1>
           <div className="sf-metadata text-[10px] text-outline font-semibold uppercase tracking-wider mt-0.5">

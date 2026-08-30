@@ -7,6 +7,7 @@ import { Hotspot } from '../hotspots/hotspot.model';
 import { Facility } from '../facilities/facility.model';
 import { Classification } from '../classifications/classification.model';
 import { Alert } from '../alerts/alert.model';
+import { OsmFeature } from '../osm/osmFeature.model';
 import { CURRENT_MODEL_METADATA } from '../classifications/classification.service';
 
 export const systemRoutes = Router();
@@ -40,11 +41,12 @@ systemRoutes.get('/status', async (_req: Request, res: Response) => {
     const ingestionStatus = await getLatestIngestionStatus();
 
     // 4. Actual Database Counts (Truthful, non-demo)
-    const [totalHotspots, totalFacilities, totalClassifications, openAlerts] = await Promise.all([
+    const [totalHotspots, totalFacilities, totalClassifications, openAlerts, totalOsmFeatures] = await Promise.all([
       Hotspot.countDocuments(),
       Facility.countDocuments(),
       Classification.countDocuments(),
       Alert.countDocuments({ status: 'open' }),
+      OsmFeature.countDocuments(),
     ]);
 
     // 5. Build status response
@@ -67,6 +69,7 @@ systemRoutes.get('/status', async (_req: Request, res: Response) => {
       counts: {
         totalHotspots,
         totalFacilities,
+        totalOsmFeatures,
         totalClassifications,
         openAlerts,
       },

@@ -58,13 +58,18 @@ export default function DashboardPage({ onNavigateToMap }: DashboardPageProps) {
     <main className="flex-1 overflow-y-auto overflow-x-hidden relative flex flex-col p-margin-mobile md:p-margin-desktop gap-lg pb-24 h-full bg-surface-dim">
       {/* Page Header */}
       <div className="flex flex-col gap-xs mb-md">
-        <div className="flex items-center gap-2">
-          <h1 className="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface font-black tracking-tight">
-            Thermal Intelligence — Delhi NCR
-          </h1>
-          <span className="font-status-pill text-status-pill px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/30 uppercase font-mono">
-            Verified Pipeline
-          </span>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl liquid-glass-interactive flex items-center justify-center p-2 border border-white/20 shadow-md bg-slate-950/40">
+            <img src="/logo-white.png" alt="IGNISSENSE" className="w-full h-full object-contain filter drop-shadow-[0_0_8px_rgba(56,189,248,0.5)]" />
+          </div>
+          <div className="flex items-center gap-2">
+            <h1 className="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface font-black tracking-tight">
+              Thermal Intelligence — Whole India (National)
+            </h1>
+            <span className="font-status-pill text-status-pill px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/30 uppercase font-mono">
+              Verified Pipeline
+            </span>
+          </div>
         </div>
         <p className="font-body-md text-body-md text-on-surface-variant">
           Satellite-detected thermal observations aggregated strictly from NASA FIRMS & OpenStreetMap spatial enrichment.

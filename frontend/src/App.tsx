@@ -89,7 +89,7 @@ function AppContent() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `ignissense-delhincr-hotspots-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `ignissense-india-hotspots-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     setShowExportModal(false);
   };
@@ -107,7 +107,7 @@ function AppContent() {
 
       {/* Floating UI Layer */}
       <TopNavBar
-        selectedRegion="Delhi NCR"
+        selectedRegion="Whole India"
         onSelectSearchResult={handleSelectSearchResult}
       />
       <SideNavBar
@@ -147,8 +147,10 @@ function AppContent() {
       {showExportModal && (
         <div className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
           <div className="glass-panel rounded-xl p-6 max-w-md w-full shadow-2xl border border-outline-variant/50">
-            <div className="flex items-center gap-3 text-primary mb-3">
-              <span className="material-symbols-outlined text-[24px]">download</span>
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-8 h-8 rounded-xl liquid-glass-interactive flex items-center justify-center p-1.5 border border-white/20 bg-slate-950/40">
+                <img src="/logo-white.png" alt="IGNISSENSE" className="w-full h-full object-contain filter drop-shadow-[0_0_6px_rgba(56,189,248,0.5)]" />
+              </div>
               <h3 className="font-headline-md text-[20px] font-black text-on-surface">Export Incident Dossier</h3>
             </div>
             <p className="font-body-md text-on-surface-variant text-[14px] mb-4 leading-relaxed">

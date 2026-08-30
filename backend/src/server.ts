@@ -21,7 +21,7 @@ async function startServer() {
     const runLiveSyncLoop = async () => {
       try {
         console.log('[Live NASA FIRMS] Checking for latest satellite passes (VIIRS/MODIS)...');
-        const syncResult = await ingestFirmsDelhiNcr({ dayRange: 2 });
+        const syncResult = await ingestFirmsIndia({ dayRange: 2 });
         console.log(
           `[Live NASA FIRMS + ML] Synced & Classified: ${syncResult.totalStored} new fire records, ${syncResult.totalDuplicates} existing.`
         );

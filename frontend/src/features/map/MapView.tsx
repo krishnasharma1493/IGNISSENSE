@@ -2,7 +2,7 @@ import { useRef, useEffect, useState, useMemo } from 'react';
 import { Map as MapLibreMap, Marker, Popup } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { DELHI_NCR, ALL_INDIA, CLASS_CONFIG } from '../../types';
-import type { Hotspot, Facility, Classification, ClassificationClass } from '../../types';
+import type { Hotspot, Facility, OsmFeature, Classification, ClassificationClass } from '../../types';
 import LiveStreamHUD from './LiveStreamHUD';
 
 
@@ -83,6 +83,37 @@ export const BASEMAP_STYLES: Record<MapBasemap, any> = {
   },
 };
 
+export const OSM_CATEGORY_STYLE: Record<
+  string,
+  { color: string; border: string; bg: string; icon: string; label: string }
+> = {
+  industrial: { color: '#06b6d4', border: '#22d3ee', bg: 'rgba(8, 51, 68, 0.95)', icon: 'factory', label: 'Industrial' },
+  power: { color: '#eab308', border: '#fde047', bg: 'rgba(66, 32, 6, 0.95)', icon: 'bolt', label: 'Power Plant' },
+  mining: { color: '#c084fc', border: '#d8b4fe', bg: 'rgba(59, 7, 100, 0.95)', icon: 'terrain', label: 'Mining / Quarry' },
+  oil_gas: { color: '#fb923c', border: '#fdba74', bg: 'rgba(67, 20, 7, 0.95)', icon: 'local_gas_station', label: 'Oil & Gas' },
+  forest: { color: '#34d399', border: '#6ee7b7', bg: 'rgba(6, 78, 59, 0.95)', icon: 'park', label: 'Forest' },
+  agriculture: { color: '#a3e635', border: '#bef264', bg: 'rgba(26, 46, 5, 0.95)', icon: 'agriculture', label: 'Agriculture' },
+  urban: { color: '#94a3b8', border: '#cbd5e1', bg: 'rgba(15, 23, 42, 0.95)', icon: 'apartment', label: 'Urban' },
+  water: { color: '#38bdf8', border: '#7dd3fc', bg: 'rgba(8, 47, 73, 0.95)', icon: 'water_drop', label: 'Water' },
+  other: { color: '#94a3b8', border: '#cbd5e1', bg: 'rgba(30, 41, 59, 0.95)', icon: 'location_on', label: 'Context' },
+};
+
+function generateGeodesicCircle(center: [number, number], radiusKm: number, points = 64): [number, number][] {
+  const [lng, lat] = center;
+  const coords: [number, number][] = [];
+  const distanceX = radiusKm / (111.32 * Math.cos((lat * Math.PI) / 180));
+  const distanceY = radiusKm / 110.574;
+
+  for (let i = 0; i <= points; i++) {
+    const theta = (i / points) * (2 * Math.PI);
+    const x = distanceX * Math.cos(theta);
+    const y = distanceY * Math.sin(theta);
+    coords.push([lng + x, lat + y]);
+  }
+
+  return coords;
+}
+
 interface MapViewProps {
   hotspots: Hotspot[];
   facilities: Facility[];
@@ -91,6 +122,8 @@ interface MapViewProps {
   onHotspotSelect: (id: string) => void;
   classFilter: ClassificationClass | null;
   targetLocation?: { coordinates: [number, number]; label?: string; zoom?: number } | null;
+  nearbyOsmFeatures?: OsmFeature[];
+  isNearbyOsmLoading?: boolean;
 }
 
 export default function MapView({
@@ -100,15 +133,19 @@ export default function MapView({
   selectedHotspotId,
   onHotspotSelect,
   targetLocation,
+  nearbyOsmFeatures = [],
+  isNearbyOsmLoading = false,
 }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const markersRef = useRef<Marker[]>([]);
   const facilityMarkersRef = useRef<Marker[]>([]);
+  const nearbyOsmMarkersRef = useRef<Marker[]>([]);
   const targetMarkerRef = useRef<Marker[]>([]);
 
   const [basemap, setBasemap] = useState<MapBasemap>('satellite');
   const [showFacilities, setShowFacilities] = useState(true);
+  const [showNearbyOsm, setShowNearbyOsm] = useState<boolean>(true);
   const [isLiveIndia, setIsLiveIndia] = useState(true);
   const [renderMode, setRenderMode] = useState<'ai_classified' | 'firms_classic'>('firms_classic');
   const [activeClassFilter, setActiveClassFilter] = useState<string>('all');
@@ -454,6 +491,214 @@ export default function MapView({
     });
   }, [facilities, showFacilities]);
 
+  // Update Nearby OSM Context Markers & GIS Radar for selected thermal anomaly
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    // Clear previous nearby OSM markers
+    nearbyOsmMarkersRef.current.forEach((m) => m.remove());
+    nearbyOsmMarkersRef.current = [];
+
+    const cleanupRadar = () => {
+      try {
+        if (map.getLayer('osm-correlation-lines')) map.removeLayer('osm-correlation-lines');
+        if (map.getLayer('osm-radar-stroke')) map.removeLayer('osm-radar-stroke');
+        if (map.getLayer('osm-radar-fill')) map.removeLayer('osm-radar-fill');
+        if (map.getSource('selected-osm-radar-source')) map.removeSource('selected-osm-radar-source');
+      } catch {
+        // ignore if style is transitioning
+      }
+    };
+
+    const selectedHotspot = selectedHotspotId
+      ? hotspots.find((h) => h._id === selectedHotspotId)
+      : null;
+
+    if (!selectedHotspot || !showNearbyOsm || nearbyOsmFeatures.length === 0) {
+      cleanupRadar();
+      return;
+    }
+
+    const [hotspotLng, hotspotLat] = selectedHotspot.location.coordinates;
+
+    // 1. Create interactive GIS markers for each nearby OSM feature
+    nearbyOsmFeatures.forEach((feat) => {
+      const [fLng, fLat] = feat.geometry.coordinates;
+      const theme = OSM_CATEGORY_STYLE[feat.featureCategory] || OSM_CATEGORY_STYLE.other;
+      const distStr = feat.distance_m
+        ? feat.distance_m > 1000
+          ? `${(feat.distance_m / 1000).toFixed(1)} km`
+          : `${Math.round(feat.distance_m)} m`
+        : 'Nearby';
+
+      const el = document.createElement('div');
+      el.className = 'nearby-osm-marker group';
+      el.style.cssText = `
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        cursor: pointer;
+        z-index: 110;
+        transform: translate(-50%, -50%);
+        transition: transform 0.15s ease;
+      `;
+
+      const badge = document.createElement('div');
+      badge.style.cssText = `
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: ${theme.bg};
+        border: 2px solid ${theme.border};
+        box-shadow: 0 0 12px ${theme.color}88, inset 0 0 4px ${theme.color}44;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: ${theme.color};
+      `;
+
+      const iconSpan = document.createElement('span');
+      iconSpan.className = 'material-symbols-outlined text-[14px]';
+      iconSpan.textContent = theme.icon;
+      badge.appendChild(iconSpan);
+      el.appendChild(badge);
+
+      const pill = document.createElement('div');
+      pill.style.cssText = `
+        margin-top: 3px;
+        padding: 1px 5px;
+        border-radius: 4px;
+        font-size: 9px;
+        font-family: monospace;
+        font-weight: 700;
+        white-space: nowrap;
+        background: rgba(15, 23, 42, 0.9);
+        color: ${theme.color};
+        border: 1px solid ${theme.border}55;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+      `;
+      const shortName = feat.name.length > 18 ? feat.name.slice(0, 16) + '…' : feat.name;
+      pill.textContent = `${shortName} • ${distStr}`;
+      el.appendChild(pill);
+
+      const popupHtml = `
+        <div style="padding: 10px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; min-width: 210px; background: #0b1329; color: #f1f5f9; border-radius: 8px; border: 1px solid ${theme.border}66; box-shadow: 0 10px 25px rgba(0,0,0,0.7);">
+          <div style="display: flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: ${theme.color}; margin-bottom: 4px;">
+            <span class="material-symbols-outlined" style="font-size: 15px;">${theme.icon}</span>
+            <span>${theme.label} • ${feat.featureSubcategory.replace(/_/g, ' ')}</span>
+          </div>
+          <div style="font-size: 13px; font-weight: 700; color: #ffffff; line-height: 1.3; margin-bottom: 4px;">
+            ${feat.name}
+          </div>
+          ${feat.operator ? `<div style="font-size: 11px; color: #94a3b8; margin-bottom: 4px;">Operator: ${feat.operator}</div>` : ''}
+          <div style="margin-top: 8px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.12); display: flex; align-items: center; justify-content: space-between; font-size: 11px;">
+            <span style="color: #94a3b8;">Distance from anomaly:</span>
+            <span style="font-family: monospace; font-weight: 700; color: #f59e0b;">${distStr}</span>
+          </div>
+          <div style="font-size: 9px; font-family: monospace; color: #64748b; margin-top: 4px;">OSM: ${feat.sourceId || feat.osmId}</div>
+        </div>
+      `;
+
+      const popup = new Popup({
+        offset: 16,
+        closeButton: true,
+        closeOnClick: false,
+        className: 'osm-feature-popup',
+      }).setHTML(popupHtml);
+
+      const marker = new Marker({ element: el })
+        .setLngLat([fLng, fLat])
+        .setPopup(popup)
+        .addTo(map);
+
+      nearbyOsmMarkersRef.current.push(marker);
+    });
+
+    // 2. Add GIS Proximity Perimeter Circle & Correlation Lines
+    const circleCoords = generateGeodesicCircle([hotspotLng, hotspotLat], 10, 64);
+    const correlationLines = nearbyOsmFeatures.slice(0, 6).map((f) => ({
+      type: 'Feature' as const,
+      geometry: {
+        type: 'LineString' as const,
+        coordinates: [[hotspotLng, hotspotLat], f.geometry.coordinates],
+      },
+      properties: {
+        category: f.featureCategory,
+        name: f.name,
+      },
+    }));
+
+    const radarGeoJson: any = {
+      type: 'FeatureCollection',
+      features: [
+        {
+          type: 'Feature',
+          geometry: {
+            type: 'Polygon',
+            coordinates: [circleCoords],
+          },
+          properties: { type: 'perimeter' },
+        },
+        ...correlationLines,
+      ],
+    };
+
+    try {
+      if (map.getSource('selected-osm-radar-source')) {
+        (map.getSource('selected-osm-radar-source') as any).setData(radarGeoJson);
+      } else {
+        map.addSource('selected-osm-radar-source', {
+          type: 'geojson',
+          data: radarGeoJson,
+        });
+
+        map.addLayer({
+          id: 'osm-radar-fill',
+          type: 'fill',
+          source: 'selected-osm-radar-source',
+          filter: ['==', '$type', 'Polygon'],
+          paint: {
+            'fill-color': '#06b6d4',
+            'fill-opacity': 0.04,
+          },
+        });
+
+        map.addLayer({
+          id: 'osm-radar-stroke',
+          type: 'line',
+          source: 'selected-osm-radar-source',
+          filter: ['==', '$type', 'Polygon'],
+          paint: {
+            'line-color': '#22d3ee',
+            'line-width': 1.5,
+            'line-dasharray': [4, 4],
+            'line-opacity': 0.6,
+          },
+        });
+
+        map.addLayer({
+          id: 'osm-correlation-lines',
+          type: 'line',
+          source: 'selected-osm-radar-source',
+          filter: ['==', '$type', 'LineString'],
+          paint: {
+            'line-color': '#38bdf8',
+            'line-width': 1.5,
+            'line-dasharray': [3, 3],
+            'line-opacity': 0.7,
+          },
+        });
+      }
+    } catch {
+      // ignore
+    }
+
+    return () => {
+      cleanupRadar();
+    };
+  }, [selectedHotspotId, hotspots, nearbyOsmFeatures, showNearbyOsm, basemap]);
+
   // Target searched location pin
   useEffect(() => {
     const map = mapRef.current;
@@ -516,26 +761,40 @@ export default function MapView({
   const handleZoomIn = () => mapRef.current?.zoomIn();
   const handleZoomOut = () => mapRef.current?.zoomOut();
 
-  const handleToggleLiveIndia = () => {
+  const INDIA_REGIONS = [
+    { label: 'Whole India', center: ALL_INDIA.center, zoom: ALL_INDIA.zoom },
+    { label: 'Punjab Agri Belt', center: [75.85, 30.9] as [number, number], zoom: 8.5 },
+    { label: 'Gujarat Industrial', center: [71.5, 22.3] as [number, number], zoom: 8.0 },
+    { label: 'Jharkhand Mining', center: [86.15, 23.75] as [number, number], zoom: 8.5 },
+    { label: 'Odisha / Central', center: [84.0, 21.0] as [number, number], zoom: 7.8 },
+    { label: 'Delhi NCR', center: DELHI_NCR.center, zoom: DELHI_NCR.zoom },
+    { label: 'South India', center: [77.6, 12.97] as [number, number], zoom: 7.5 },
+  ];
+
+  const [selectedRegionName, setSelectedRegionName] = useState<string>('Whole India');
+
+  const handleSelectRegion = (reg: typeof INDIA_REGIONS[0]) => {
     const map = mapRef.current;
     if (!map) return;
-    setIsLiveIndia(true);
-    setBasemap('satellite');
+    setSelectedRegionName(reg.label);
+    setIsLiveIndia(reg.label === 'Whole India');
     map.flyTo({
-      center: ALL_INDIA.center,
-      zoom: ALL_INDIA.zoom,
+      center: reg.center,
+      zoom: reg.zoom,
       speed: 1.2,
       curve: 1.4,
     });
   };
 
-  const handleFocusDelhiNcr = () => {
+  const handleToggleLiveIndia = () => {
     const map = mapRef.current;
     if (!map) return;
-    setIsLiveIndia(false);
+    setIsLiveIndia(true);
+    setSelectedRegionName('Whole India');
+    setBasemap('satellite');
     map.flyTo({
-      center: DELHI_NCR.center,
-      zoom: DELHI_NCR.zoom,
+      center: ALL_INDIA.center,
+      zoom: ALL_INDIA.zoom,
       speed: 1.2,
       curve: 1.4,
     });
@@ -557,7 +816,7 @@ export default function MapView({
 
       {/* ── Top Floating Action Island (macOS 26 Liquid Glass) ── */}
       <div className="absolute top-[80px] right-6 z-20 flex items-center gap-2 pointer-events-auto">
-        {/* Live India Pan-Zoom Mode Toggle */}
+        {/* Whole India National Focus Button */}
         <button
           onClick={handleToggleLiveIndia}
           className={`liquid-btn px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all ${
@@ -568,22 +827,27 @@ export default function MapView({
           title="Switch to Pan-India Complete Satellite Fire Grid"
         >
           <span className="w-2 h-2 rounded-full bg-white shadow-[0_0_8px_#ffffff] animate-ping" />
-          <span className="tracking-wide uppercase sf-headline">LIVE INDIA ({stats.total})</span>
+          <span className="tracking-wide uppercase sf-headline">WHOLE INDIA ({stats.total})</span>
         </button>
 
-        {/* Delhi NCR Focus Button */}
-        <button
-          onClick={handleFocusDelhiNcr}
-          className={`liquid-btn px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all ${
-            !isLiveIndia
-              ? 'liquid-glass-interactive bg-primary/25 text-primary border-t border-white/40 font-bold shadow-[0_4px_16px_rgba(112,210,255,0.25)]'
-              : 'liquid-glass-interactive text-on-surface hover:text-white'
-          }`}
-          title="Focus Camera on Delhi NCR Focus Region"
-        >
-          <span className="material-symbols-outlined text-[16px]">my_location</span>
-          <span className="sf-subhead">Delhi NCR</span>
-        </button>
+        {/* Region Quick Selector Dropdown */}
+        <div className="liquid-glass-interactive px-2 py-1.5 rounded-xl flex items-center gap-1.5 border border-white/10">
+          <span className="material-symbols-outlined text-[15px] text-cyan-400">map</span>
+          <select
+            value={selectedRegionName}
+            onChange={(e) => {
+              const reg = INDIA_REGIONS.find((r) => r.label === e.target.value);
+              if (reg) handleSelectRegion(reg);
+            }}
+            className="bg-transparent text-xs font-bold text-white border-none outline-none focus:ring-0 cursor-pointer pr-1"
+          >
+            {INDIA_REGIONS.map((r) => (
+              <option key={r.label} value={r.label} className="bg-slate-900 text-white">
+                {r.label}
+              </option>
+            ))}
+          </select>
+        </div>
 
         {/* Basemap Switcher Pill */}
         <div className="liquid-glass-interactive p-1 rounded-xl flex items-center gap-1">
@@ -666,6 +930,24 @@ export default function MapView({
           <span className="material-symbols-outlined text-[16px]">factory</span>
           <span className="sf-subhead">Facilities {showFacilities ? 'ON' : 'OFF'}</span>
         </button>
+
+        {/* Nearby OSM Context Toggle (Active when hotspot selected) */}
+        {selectedHotspotId && (
+          <button
+            onClick={() => setShowNearbyOsm(!showNearbyOsm)}
+            className={`liquid-btn px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all ${
+              showNearbyOsm
+                ? 'liquid-glass-interactive bg-cyan-500/20 text-cyan-300 border-t border-cyan-400/40 font-bold shadow-[0_2px_12px_rgba(6,182,212,0.25)]'
+                : 'liquid-glass-interactive text-on-surface-variant hover:text-white'
+            }`}
+            title="Toggle Nearby OpenStreetMap GIS Context Layer"
+          >
+            <span className="material-symbols-outlined text-[16px] text-cyan-400">share_location</span>
+            <span className="sf-subhead">
+              OSM Context {nearbyOsmFeatures.length > 0 ? `(${nearbyOsmFeatures.length})` : ''} {showNearbyOsm ? 'ON' : 'OFF'}
+            </span>
+          </button>
+        )}
       </div>
 
       {/* ── Live ML Telemetry Feed Stream HUD ── */}
@@ -682,7 +964,7 @@ export default function MapView({
         <div className="liquid-glass-interactive px-4 py-1.5 rounded-full flex items-center gap-3 shadow-lg">
           <div className="flex items-center gap-1.5 text-xs font-mono font-bold text-red-400">
             <span className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_#ef4444] animate-ping" />
-            <span className="sf-metadata text-[10px]">NASA FIRMS TELEMETRY</span>
+            <span className="sf-metadata text-[10px]">NASA FIRMS (INDIA NATIONAL)</span>
           </div>
           <span className="w-1 h-3 bg-white/20 rounded-full" />
           <div className="text-xs text-on-surface flex items-center gap-1.5 sf-subhead">
@@ -690,6 +972,31 @@ export default function MapView({
           </div>
         </div>
       </div>
+
+      {/* ── Active Anomaly OSM GIS Context Badge ── */}
+      {selectedHotspotId && (
+        <div className="absolute top-[130px] left-24 z-10 flex items-center gap-2 pointer-events-auto">
+          <div className="liquid-glass-interactive px-3.5 py-1.5 rounded-full flex items-center gap-2.5 shadow-lg border border-cyan-500/40 bg-slate-950/80 backdrop-blur-md">
+            <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_8px_#22d3ee]" />
+            <span className="text-xs font-mono font-bold text-cyan-300">
+              {isNearbyOsmLoading
+                ? 'QUERYING GIS CONTEXT...'
+                : `GIS CONTEXT: ${nearbyOsmFeatures.length} OSM FEATURES WITHIN 20KM`}
+            </span>
+            {nearbyOsmFeatures.length > 0 && (
+              <>
+                <span className="w-1 h-3 bg-white/20 rounded-full" />
+                <button
+                  onClick={() => setShowNearbyOsm(!showNearbyOsm)}
+                  className="text-[10px] font-bold text-cyan-200 hover:text-white uppercase tracking-wider underline cursor-pointer"
+                >
+                  {showNearbyOsm ? 'Hide on map' : 'Show on map'}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ── Live Classification Filter Pills Bar (Floating Bottom-Center) ── */}
       <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-30 pointer-events-auto">

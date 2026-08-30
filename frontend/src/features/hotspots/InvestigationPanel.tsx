@@ -1,5 +1,5 @@
 import { CLASS_CONFIG, CLASSIFICATION_CLASSES } from '../../types';
-import type { Classification, Hotspot } from '../../types';
+import type { Classification, Hotspot, OsmFeature } from '../../types';
 import { useHotspotHistory } from '../../api/hooks';
 
 interface InvestigationPanelProps {
@@ -7,6 +7,7 @@ interface InvestigationPanelProps {
   classification: Classification | null;
   isLoading: boolean;
   onClose: () => void;
+  nearbyOsmFeatures?: OsmFeature[];
 }
 
 export default function InvestigationPanel({
@@ -14,6 +15,7 @@ export default function InvestigationPanel({
   classification,
   isLoading,
   onClose,
+  nearbyOsmFeatures = [],
 }: InvestigationPanelProps) {
   const cls = classification?.predictedClass || 'other_or_uncertain';
   const config = CLASS_CONFIG[cls];
@@ -80,12 +82,19 @@ export default function InvestigationPanel({
               {confPercent}% Confidence
             </span>
           </div>
-          <h2 className="sf-display text-xl font-black text-on-surface tracking-tight font-mono">
-            Event #{eventId}
-          </h2>
-          <p className="sf-headline text-xs mt-0.5 font-bold" style={{ color: config.color }}>
-            {config.label}
-          </p>
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl liquid-glass-interactive flex items-center justify-center p-1.5 border border-white/20 bg-slate-950/40 flex-shrink-0">
+              <img src="/logo-white.png" alt="IGNISSENSE" className="w-full h-full object-contain filter drop-shadow-[0_0_6px_rgba(56,189,248,0.5)]" />
+            </div>
+            <div>
+              <h2 className="sf-display text-xl font-black text-on-surface tracking-tight font-mono">
+                Event #{eventId}
+              </h2>
+              <p className="sf-headline text-xs mt-0.5 font-bold" style={{ color: config.color }}>
+                {config.label}
+              </p>
+            </div>
+          </div>
         </div>
         <button
           onClick={onClose}
@@ -213,28 +222,64 @@ export default function InvestigationPanel({
             {/* 3. Spatial Context & 4. Grounded Evidence */}
             <section className="space-y-4">
               <div className="liquid-glass-interactive p-4 rounded-2xl">
-                <h3 className="sf-metadata text-[11px] uppercase font-bold text-slate-300 mb-3 pb-1 border-b border-white/10">
-                  3. Spatial Infrastructure Context (OSM)
-                </h3>
-                <div className="flex items-start gap-2.5">
+                <div className="flex items-center justify-between mb-3 pb-1 border-b border-white/10">
+                  <h3 className="sf-metadata text-[11px] uppercase font-bold text-slate-300">
+                    3. Spatial Infrastructure Context (OSM)
+                  </h3>
+                  <span className="text-[10px] font-mono text-cyan-400 font-bold">
+                    {nearbyOsmFeatures.length > 0 ? `${nearbyOsmFeatures.length} Mapped within 20km` : 'OSM Layer'}
+                  </span>
+                </div>
+
+                <div className="flex items-start gap-2.5 mb-3">
                   <span className="material-symbols-outlined text-secondary mt-0.5 text-[18px]">
                     location_on
                   </span>
                   <div>
                     <p className="sf-headline text-xs text-on-surface font-bold">
-                      {classification?.nearestFacilityId
+                      {nearbyOsmFeatures.length > 0
+                        ? nearbyOsmFeatures[0].name
+                        : classification?.nearestFacilityId
                         ? typeof classification.nearestFacilityId === 'object'
                           ? (classification.nearestFacilityId as any).name
                           : 'OpenStreetMap Industrial Facility'
                         : 'No Industrial Infrastructure Within 25km'}
                     </p>
-                    <p className="sf-metadata text-[10.5px] text-on-surface-variant mt-1 font-mono">
-                      {classification?.facilityDistanceMeters !== null && classification?.facilityDistanceMeters !== undefined
+                    <p className="sf-metadata text-[10.5px] text-on-surface-variant mt-0.5 font-mono">
+                      {nearbyOsmFeatures.length > 0 && nearbyOsmFeatures[0].distance_m !== undefined
+                        ? `Closest: ${Math.round(nearbyOsmFeatures[0].distance_m)}m from hotspot centroid (${nearbyOsmFeatures[0].featureCategory})`
+                        : classification?.facilityDistanceMeters !== null && classification?.facilityDistanceMeters !== undefined
                         ? `Distance: ${classification.facilityDistanceMeters}m from centroid`
                         : `Coordinates: ${hotspot.location.coordinates[1].toFixed(4)}° N, ${hotspot.location.coordinates[0].toFixed(4)}° E`}
                     </p>
                   </div>
                 </div>
+
+                {nearbyOsmFeatures.length > 1 && (
+                  <div className="mt-3 pt-2.5 border-t border-white/10 flex flex-col gap-1.5">
+                    <span className="text-[10px] uppercase font-mono text-slate-400 font-bold">
+                      Other Nearby Mapped Infrastructure:
+                    </span>
+                    <div className="flex flex-col gap-1 max-h-32 overflow-y-auto pr-1">
+                      {nearbyOsmFeatures.slice(1, 6).map((feat) => (
+                        <div
+                          key={feat.sourceId || feat._id}
+                          className="flex items-center justify-between p-1.5 rounded bg-white/5 border border-white/10 text-xs"
+                        >
+                          <div className="flex flex-col min-w-0 pr-2">
+                            <span className="text-[11px] font-semibold text-white truncate">{feat.name}</span>
+                            <span className="text-[9px] text-cyan-300 font-mono uppercase">
+                              {feat.featureCategory} • {feat.featureSubcategory.replace(/_/g, ' ')}
+                            </span>
+                          </div>
+                          <span className="text-[10px] font-mono font-bold text-amber-400 whitespace-nowrap">
+                            {feat.distance_m ? (feat.distance_m > 1000 ? `${(feat.distance_m / 1000).toFixed(1)}km` : `${Math.round(feat.distance_m)}m`) : ''}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="liquid-glass-interactive p-4 rounded-2xl">

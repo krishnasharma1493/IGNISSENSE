@@ -28,6 +28,15 @@ export default function SideNavBar({
       aria-label="Sidebar Navigation"
       className="absolute top-[96px] left-6 z-50 flex flex-col gap-2 liquid-glass-structural rounded-2xl p-2 pointer-events-auto"
     >
+      {/* Brand Emblem */}
+      <div className="w-11 h-11 rounded-xl liquid-glass-interactive flex items-center justify-center p-2 mb-1 border-b border-white/10 bg-slate-950/40">
+        <img
+          src="/logo-white.png"
+          alt="IGNISSENSE"
+          className="w-full h-full object-contain filter drop-shadow-[0_0_6px_rgba(56,189,248,0.6)]"
+        />
+      </div>
+
       {/* Main Nav Items */}
       <div className="flex flex-col gap-2 mb-2">
         {NAV_ITEMS.map(({ tab, icon, label }) => (

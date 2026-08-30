@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from './client';
-import type { Hotspot, Facility, Classification, Alert, AnalyticsSummary } from '../types';
+import type { Hotspot, Facility, OsmFeature, Classification, Alert, AnalyticsSummary } from '../types';
 
 // -- Live NASA FIRMS Synchronization --
 
@@ -71,6 +71,31 @@ export function useNearbyFacilities(lng: number | null, lat: number | null, radi
       return res.data.data as { facilities: Facility[]; count: number };
     },
     enabled: lng !== null && lat !== null,
+  });
+}
+
+export function useNearbyOsmFeatures(
+  lng: number | null,
+  lat: number | null,
+  radius = 15000,
+  category?: string
+) {
+  return useQuery({
+    queryKey: ['osm-features-nearby', lng, lat, radius, category],
+    queryFn: async () => {
+      const res = await api.get('/osm/features/nearby', {
+        params: {
+          longitude: lng,
+          latitude: lat,
+          radius,
+          ...(category ? { category } : {}),
+          limit: 75,
+        },
+      });
+      return res.data.data as { features: OsmFeature[]; count: number };
+    },
+    enabled: lng !== null && lat !== null && !isNaN(lng) && !isNaN(lat),
+    staleTime: 30000,
   });
 }
 

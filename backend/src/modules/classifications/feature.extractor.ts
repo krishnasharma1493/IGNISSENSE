@@ -1,5 +1,7 @@
 import { IHotspot, Hotspot } from '../hotspots/hotspot.model';
-import { findNearestFacility, haversineMeters } from '../facilities/facility.service';
+import { enrichHotspot, EnrichmentResult } from '../osm/enrichment.service';
+import { haversineMeters } from '../osm/enrichment.service';
+import { FACILITY_TYPE_ENCODING } from '../osm/taxonomy';
 import { IFacility } from '../facilities/facility.model';
 
 export interface ExtractedFeatures {
@@ -13,7 +15,7 @@ export interface ExtractedFeatures {
   satellite: string;
   confidence: string;
 
-  // Spatial features from real OSM context
+  // Spatial features from India-wide OSM context
   nearestFacility: IFacility | null;
   facilityDistanceMeters: number | null;
   facilityType: string;
@@ -35,40 +37,22 @@ export interface ExtractedFeatures {
     satellite: string;
     distanceMeters: number;
   }>;
-}
 
-/**
- * Infer land cover from spatial context and known Delhi NCR geography
- */
-function inferContextualLandCover(
-  lon: number,
-  lat: number,
-  facilityDist: number | null
-): 'built_up' | 'forest' | 'cropland' | 'bare' | 'other' {
-  if (facilityDist !== null && facilityDist < 1500) {
-    return 'built_up';
-  }
-  // Delhi Southern/Central Ridge Forest Zone
-  if (lon >= 77.12 && lon <= 77.20 && lat >= 28.55 && lat <= 28.65) {
-    return 'forest';
-  }
-  // Yamuna floodplains / agricultural corridors
-  if (lon >= 77.22 && lon <= 77.34 && lat >= 28.50 && lat <= 28.85) {
-    return 'cropland';
-  }
-  // Core urban built-up area
-  if (lon >= 77.05 && lon <= 77.35 && lat >= 28.50 && lat <= 28.75) {
-    return 'built_up';
-  }
-  // Gangetic agricultural plain
-  if (lat >= 24 && lat <= 32 && lon >= 74 && lon <= 88) {
-    return 'cropland';
-  }
-  return 'other';
+  // Enrichment provenance
+  enrichmentSource?: string;
+  enrichmentStatus?: string;
 }
 
 /**
  * Extract comprehensive, verifiable features for a real FIRMS hotspot.
+ *
+ * Spatial context is now provided by the India-wide OSM enrichment service
+ * (enrichment.service.ts) which queries the osm_features collection.
+ * Falls back to legacy Delhi NCR facilities collection if India-wide data
+ * is not yet loaded.
+ *
+ * The canonical 14-feature schema is preserved — the ML model input
+ * does not change, only the data source improves.
  */
 export async function extractFeaturesForHotspot(
   hotspot: IHotspot
@@ -79,12 +63,31 @@ export async function extractFeaturesForHotspot(
   const brightnessTi5 = hotspot.brightnessTi5 || 290.0;
   const tempDelta = Math.max(0, brightness - brightnessTi5);
 
-  // 1. Spatial context: nearest real OSM facility
-  const { facility, distanceMeters } = await findNearestFacility(lon, lat, 25000);
-  const facilityType = facility?.facilityType || 'none';
+  // 1. Spatial context: India-wide OSM enrichment
+  const enrichment: EnrichmentResult = await enrichHotspot(lon, lat, 25000);
+
+  const facilityType = enrichment.facilityType;
+  const distanceMeters = enrichment.facilityDistanceMeters;
   const isInsideIndustrialPerimeter = distanceMeters !== null && distanceMeters <= 400;
   const isNearIndustrialPerimeter = distanceMeters !== null && distanceMeters <= 1500;
-  const landCover = inferContextualLandCover(lon, lat, distanceMeters);
+  const landCover = enrichment.inferredLandCover === 'water' ? 'other' : enrichment.inferredLandCover;
+
+  // Build a compatibility shim for nearestFacility (used by explanation generation)
+  let nearestFacility: IFacility | null = null;
+  if (enrichment.nearestIndustrialFacility) {
+    const nf = enrichment.nearestIndustrialFacility;
+    nearestFacility = {
+      name: nf.name,
+      facilityType: nf.subcategory,
+      sourceId: nf.sourceId,
+      osmId: nf.osmId,
+      _id: null,
+      location: {
+        type: 'Point',
+        coordinates: [lon, lat], // approximate
+      },
+    } as any;
+  }
 
   // 2. Spatial cluster density: other FIRMS hotspots within 3km in the last 72 hours
   const threeDaysAgo = new Date(new Date(hotspot.detectedAt).getTime() - 72 * 60 * 60 * 1000);
@@ -169,7 +172,7 @@ export async function extractFeaturesForHotspot(
     instrument: hotspot.instrument,
     satellite: hotspot.satellite,
     confidence: String(hotspot.confidence),
-    nearestFacility: facility,
+    nearestFacility,
 
     facilityDistanceMeters: distanceMeters,
     facilityType,
@@ -183,6 +186,8 @@ export async function extractFeaturesForHotspot(
     frpZScore,
     daysSinceLastDetection,
     priorObservations,
+    enrichmentSource: enrichment.enrichmentSource,
+    enrichmentStatus: enrichment.enrichmentStatus,
   };
 }
 
@@ -196,6 +201,30 @@ export const FACILITY_TYPE_MAP: Record<string, number> = {
   quarry_mining: 6,
   general_industrial: 7,
   warehouse: 8,
+  // Extended types from India-wide taxonomy
+  chemical_plant: 3,
+  steel_plant: 5,
+  cement_plant: 9,
+  oil_gas_facility: 10,
+  petroleum_well: 11,
+  thermal_power_station: 2,
+  substation: 12,
+  mine: 6,
+  coal_mine: 6,
+  opencast_mine: 6,
+  quarry: 6,
+  factory: 7,
+  manufacturing: 7,
+  works: 7,
+  industrial_area: 7,
+  industrial: 7,
+  lpg_plant: 10,
+  pipeline_station: 10,
+  oil_terminal: 10,
+  gas_flare: 10,
+  solar_farm: 13,
+  wind_farm: 13,
+  hydroelectric: 2,
 };
 
 export const LANDCOVER_MAP: Record<string, number> = {
@@ -241,4 +270,3 @@ export function toCanonicalFeatureRecord(features: ExtractedFeatures): Record<st
       features.daysSinceLastDetection !== null ? features.daysSinceLastDetection : -1,
   };
 }
-

@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import MapView from '../features/map/MapView';
 import InvestigationPanel from '../features/hotspots/InvestigationPanel';
-import { useHotspots, useHotspot, useFacilities, useClassification } from '../api/hooks';
+import { useHotspots, useHotspot, useFacilities, useClassification, useNearbyOsmFeatures } from '../api/hooks';
 import { CLASS_CONFIG, CLASSIFICATION_CLASSES, DELHI_NCR } from '../types';
 import type { Classification, ClassificationClass } from '../types';
 import { api } from '../api/client';
@@ -53,7 +53,7 @@ export default function MapPage({
   }, [targetLocation]);
 
   // Fetch real-time hotspots
-  const { data: hotspotsData } = useHotspots({ limit: '1000' });
+  const { data: hotspotsData } = useHotspots({ limit: '5000' });
   const allHotspots = hotspotsData?.hotspots || [];
 
   // Fetch industrial facilities
@@ -64,11 +64,21 @@ export default function MapPage({
   const { data: selectedHotspot, isLoading: hotspotLoading } = useHotspot(selectedHotspotId);
   const { data: selectedClassification, isLoading: classLoading } = useClassification(selectedHotspotId);
 
+  // Fetch nearby OSM context when a hotspot is selected
+  const selectedLng = selectedHotspot?.location.coordinates[0] ?? null;
+  const selectedLat = selectedHotspot?.location.coordinates[1] ?? null;
+  const { data: nearbyOsmData, isLoading: nearbyOsmLoading } = useNearbyOsmFeatures(
+    selectedLng,
+    selectedLat,
+    20000 // 20 km search radius
+  );
+  const nearbyOsmFeatures = nearbyOsmData?.features || [];
+
   // Bulk fetch classifications
   const { data: allClassifications } = useQuery({
     queryKey: ['all-classifications'],
     queryFn: async () => {
-      const res = await api.get('/classifications', { params: { limit: '2000' } });
+      const res = await api.get('/classifications', { params: { limit: '5000' } });
       const results = new Map<string, Classification>();
       if (res.data?.success && Array.isArray(res.data.data?.classifications)) {
         res.data.data.classifications.forEach((c: Classification) => {
@@ -193,10 +203,12 @@ export default function MapPage({
         selectedHotspotId={selectedHotspotId}
         onHotspotSelect={(id) => {
           setSelectedHotspotId(id);
-          setIsInvestigating(true);
+          setIsInvestigating(false);
         }}
         classFilter={null}
         targetLocation={targetLocation}
+        nearbyOsmFeatures={nearbyOsmFeatures}
+        isNearbyOsmLoading={nearbyOsmLoading}
       />
 
       {/* Floating Right Column: Search + Filters + Quick Anomaly Card (when NOT in full investigation panel) */}
@@ -422,6 +434,56 @@ export default function MapPage({
                   <div className="w-1/6 bg-industrial-fire/80 h-[90%] rounded-t-sm" />
                   <div className="w-1/6 bg-industrial-fire h-[100%] rounded-t-sm shadow-[0_0_8px_#ef4444]" />
                 </div>
+                {/* Nearby OSM Context in GIS */}
+                <div className="flex flex-col gap-1.5 pt-2 border-t border-outline-variant/30">
+                  <div className="flex items-center justify-between">
+                    <span className="font-label-sm text-outline-variant text-[10px] uppercase flex items-center gap-1 font-bold">
+                      <span className="material-symbols-outlined text-[14px] text-cyan-400">share_location</span>
+                      Nearby OSM Context (GIS)
+                    </span>
+                    <span className="text-[10px] font-mono text-cyan-400 font-bold">
+                      {nearbyOsmLoading ? 'Scanning...' : `${nearbyOsmFeatures.length} Mapped`}
+                    </span>
+                  </div>
+
+                  {nearbyOsmLoading ? (
+                    <div className="text-[10px] text-slate-400 font-mono italic animate-pulse">
+                      Querying India-wide geospatial context...
+                    </div>
+                  ) : nearbyOsmFeatures.length > 0 ? (
+                    <div className="flex flex-col gap-1 max-h-36 overflow-y-auto pr-1 custom-scrollbar">
+                      {nearbyOsmFeatures.slice(0, 4).map((f) => (
+                        <div
+                          key={f.sourceId || f._id}
+                          onClick={() => {
+                            navigateToLocation({
+                              coordinates: [f.longitude, f.latitude],
+                              label: `${f.name} (${f.featureSubcategory})`,
+                              zoom: 15,
+                            });
+                          }}
+                          className="flex items-center justify-between p-1.5 rounded bg-surface-container-high/60 hover:bg-cyan-950/50 border border-outline-variant/20 hover:border-cyan-500/40 cursor-pointer transition-all text-left"
+                          title="Click to focus on this OSM feature in GIS"
+                        >
+                          <div className="flex flex-col min-w-0 pr-2">
+                            <span className="text-[11px] font-semibold text-white truncate">{f.name}</span>
+                            <span className="text-[9px] text-cyan-300 uppercase tracking-wider font-mono">
+                              {f.featureCategory} • {f.featureSubcategory.replace(/_/g, ' ')}
+                            </span>
+                          </div>
+                          <span className="text-[10px] font-mono font-bold text-amber-400 whitespace-nowrap">
+                            {f.distance_m ? (f.distance_m > 1000 ? (f.distance_m / 1000).toFixed(1) + 'km' : Math.round(f.distance_m) + 'm') : ''}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-[10px] text-slate-400 font-mono italic">
+                      No OSM infrastructure within 20km search radius
+                    </div>
+                  )}
+                </div>
+
                 {/* Active Working Investigate Button */}
                 <button
                   onClick={() => setIsInvestigating(true)}
@@ -442,6 +504,7 @@ export default function MapPage({
           hotspot={selectedHotspot}
           classification={selectedClassification || null}
           isLoading={hotspotLoading || classLoading}
+          nearbyOsmFeatures={nearbyOsmFeatures}
           onClose={() => setIsInvestigating(false)}
         />
       )}

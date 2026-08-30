@@ -59,7 +59,7 @@ hotspotRoutes.get('/', async (req: Request, res: Response) => {
       }
     }
 
-    const maxLimit = Math.min(parseInt(limit as string, 10) || 100, 1000);
+    const maxLimit = Math.min(parseInt(limit as string, 10) || 100, 5000);
 
     const hotspots = await Hotspot.find(filter)
       .sort({ detectedAt: -1 })

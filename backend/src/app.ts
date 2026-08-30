@@ -53,6 +53,7 @@ app.get('/api/v1/health', (_req, res) => {
 });
 
 import { systemRoutes } from './modules/system/system.routes';
+import { osmRoutes } from './modules/osm/osm.routes';
 
 // -- API Routes --
 
@@ -63,6 +64,7 @@ app.use('/api/v1/classifications', classificationRoutes);
 app.use('/api/v1/alerts', alertRoutes);
 app.use('/api/v1/ingestion', ingestionRoutes);
 app.use('/api/v1/analytics', analyticsRoutes);
+app.use('/api/v1/osm', osmRoutes);
 
 
 // -- 404 Handler --

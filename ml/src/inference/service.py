@@ -57,7 +57,7 @@ class InferenceHandler(BaseHTTPRequestHandler):
         self._set_headers(200)
 
     def do_GET(self):
-        if self.path == '/health' or self.path == '/api/v1/health':
+        if self.path in ('/', '/health', '/api/v1/health'):
             self._set_headers(200)
             res = {
                 'status': 'ok',

@@ -30,7 +30,7 @@ export default function LiveStreamHUD({
 
   const handleSyncNow = async () => {
     try {
-      await syncMutation.mutateAsync({ scope: 'delhi_ncr', dayRange: 2 });
+      await syncMutation.mutateAsync({ scope: 'india', dayRange: 2 });
     } catch (e: any) {
       console.error('Live sync error:', e.message);
     }
@@ -66,6 +66,7 @@ export default function LiveStreamHUD({
           </div>
           <div>
             <h3 className="sf-headline font-bold text-xs text-white uppercase tracking-wider flex items-center gap-2">
+              <img src="/logo-white.png" alt="Logo" className="w-3.5 h-3.5 object-contain filter drop-shadow-[0_0_4px_rgba(56,189,248,0.5)]" />
               <span>LIVE NASA FIRMS ⇄ ML STREAM</span>
             </h3>
             <div className="sf-metadata text-[10px] text-on-surface-variant font-mono">
