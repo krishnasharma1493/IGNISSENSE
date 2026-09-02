@@ -101,6 +101,9 @@ export default function DashboardPage({ variant, onInvestigate, onOpenMap }: Das
     [counts, total]
   );
 
+  const unclassifiedCount = analytics?.unclassified ?? 0;
+  const unclassifiedPct = total ? (unclassifiedCount / total) * 100 : 0;
+
   const points = trend?.points ?? [];
 
   return (
@@ -197,6 +200,26 @@ export default function DashboardPage({ variant, onInvestigate, onOpenMap }: Das
                   </div>
                 </li>
               ))}
+
+              {/* Not run through the classifier at all — kept visually distinct from the
+                  six thermal-event classes above, which is why it isn't a seventh ClassChip. */}
+              <li className="mt-1 flex flex-col gap-1 border-t border-dashed border-hairline pt-2.5">
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="text-[11px] font-medium text-ink-3">
+                    Not classified · no OSM coverage
+                  </span>
+                  <span className="num text-[11px] text-ink-2">
+                    {unclassifiedCount.toLocaleString()}
+                    <span className="ml-1 text-ink-3">{unclassifiedPct.toFixed(1)}%</span>
+                  </span>
+                </div>
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-[rgba(15,18,22,0.07)]">
+                  <div
+                    className="h-full rounded-full bg-[rgba(15,18,22,0.3)]"
+                    style={{ width: `${unclassifiedPct}%` }}
+                  />
+                </div>
+              </li>
             </ul>
           )}
         </Card>
@@ -248,14 +271,18 @@ export default function DashboardPage({ variant, onInvestigate, onOpenMap }: Das
                       </td>
                       <td className="px-3.5 py-1.5 text-[11px] text-ink-2">{h.instrument}</td>
                       <td className="px-3.5 py-1.5 text-right">
-                        {c ? (
+                        {c?.predictedClass ? (
                           <ClassChip cls={c.predictedClass} icon={false} />
                         ) : (
                           <span className="text-[11px] text-ink-4">Unclassified</span>
                         )}
                       </td>
                       <td className="num px-3.5 py-1.5 text-right text-[11px] text-ink-2">
-                        {c ? `${Math.round(c.confidence * 100)}%` : <span className="text-ink-4">—</span>}
+                        {c && c.confidence !== null ? (
+                          `${Math.round(c.confidence * 100)}%`
+                        ) : (
+                          <span className="text-ink-4">—</span>
+                        )}
                       </td>
                     </tr>
                   );

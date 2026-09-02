@@ -137,7 +137,7 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
         const eventCode = `evt-${h._id.slice(-4).toLowerCase()}`;
         const hsCode = `hs-${h._id.slice(-4).toLowerCase()}`;
         const classification = classifications.get(h._id);
-        const clsName = classification?.predictedClass.replace(/_/g, ' ').toLowerCase() || '';
+        const clsName = classification?.predictedClass?.replace(/_/g, ' ').toLowerCase() || '';
 
         if (
           hId.includes(q) ||
@@ -149,7 +149,10 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
           h.region.toLowerCase().includes(q)
         ) {
           const [lng, lat] = h.location.coordinates;
-          const conf = classification ? `${Math.round(classification.confidence * 100)}%` : `${h.confidence || 0}%`;
+          const conf =
+            classification && classification.confidence !== null
+              ? `${Math.round(classification.confidence * 100)}%`
+              : `${h.confidence || 0}%`;
           results.push({
             id: h._id,
             type: 'hotspot',

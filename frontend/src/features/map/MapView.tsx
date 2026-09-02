@@ -68,7 +68,9 @@ export default function MapView({
       // with no FRP reports no FRP; nothing is substituted.
       features: hotspots.map((h) => {
         const c = classifications.get(h._id);
-        const cls = c?.predictedClass ?? 'other_or_uncertain';
+        const isUnclassified = c?.pipelineStatus === 'unclassified_insufficient_features';
+        const cls = !c || isUnclassified ? 'other_or_uncertain' : c.predictedClass!;
+        const classLabel = isUnclassified ? '' : c ? CLASS_CONFIG[cls].label : '';
         return {
           type: 'Feature' as const,
           geometry: h.location,
@@ -81,7 +83,7 @@ export default function MapView({
             satellite: h.satellite ?? '',
             instrument: h.instrument ?? '',
             confidence: h.confidence === null ? '' : String(h.confidence),
-            classLabel: c ? CLASS_CONFIG[cls].label : '',
+            classLabel,
             color: renderMode === 'firms' ? FIRMS_RED : CLASS_CONFIG[cls].mark,
           },
         };

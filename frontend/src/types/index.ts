@@ -75,9 +75,9 @@ export interface OsmFeature {
 export interface Classification {
   _id: string;
   hotspotId: string;
-  predictedClass: ClassificationClass;
-  confidence: number;
-  classProbabilities: Record<ClassificationClass, number>;
+  predictedClass: ClassificationClass | null;
+  confidence: number | null;
+  classProbabilities: Record<ClassificationClass, number> | null;
   persistenceScore: number;
   anomalyScore: number;
   nearestFacilityId: Facility | null;
@@ -86,6 +86,14 @@ export interface Classification {
   explanation: string[];
   modelVersion: string;
   createdAt: string;
+  pipelineStatus: 'classified' | 'unclassified_insufficient_features';
+  featureVersion: string;
+  predictedAt: string;
+  featureCompleteness: {
+    required: string[];
+    unresolved: string[];
+    completenessRatio: number;
+  };
 }
 
 export interface Alert {
@@ -102,6 +110,7 @@ export interface AnalyticsSummary {
   classifications: Record<ClassificationClass, number>;
   persistentSources: number;
   anomalousSources: number;
+  unclassified: number;
   openAlerts: number;
   regions: {
     delhi_ncr: number;

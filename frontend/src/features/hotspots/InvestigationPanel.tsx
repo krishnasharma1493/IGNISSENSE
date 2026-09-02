@@ -4,7 +4,7 @@ import type { Classification, Hotspot, OsmFeature } from '../../types';
 import { useHotspotHistory } from '../../api/hooks';
 import Panel from '../../components/ui/Panel';
 import { Section } from '../../components/ui/Provenance';
-import { Bar, Field, Metric } from '../../components/ui/Readout';
+import { Bar, Field, Metric, MISSING } from '../../components/ui/Readout';
 import {
   formatDistance,
   formatFirmsConfidence,
@@ -175,6 +175,17 @@ export default function InvestigationPanel({
               This detection has not been classified yet. The pipeline classifies newly ingested
               hotspots in batches, so a very recent detection may not have a result.
             </p>
+          ) : classification.pipelineStatus === 'unclassified_insufficient_features' ? (
+            <div className="inset-surface rounded-md px-3 py-2.5">
+              <p className="text-[12px] font-medium text-ink">Not classified</p>
+              <p className="mt-1 text-[11px] leading-relaxed text-ink-2">
+                The classifier did not run. OpenStreetMap coverage has not been extracted for
+                this location, so the spatial features it requires could not be measured.
+              </p>
+              <p className="num mt-1.5 text-[10px] text-ink-3">
+                Unresolved: {classification.featureCompleteness.unresolved.join(', ')}
+              </p>
+            </div>
           ) : (
             <>
               {isOffline ? (
@@ -192,7 +203,9 @@ export default function InvestigationPanel({
               <div className="flex items-baseline justify-between gap-2">
                 <span className="text-[11px] text-ink-3">Predicted class confidence</span>
                 <span className="num text-[15px] font-semibold text-ink">
-                  {Math.round(classification.confidence * 100)}%
+                  {classification.confidence !== null
+                    ? `${Math.round(classification.confidence * 100)}%`
+                    : MISSING}
                 </span>
               </div>
 
