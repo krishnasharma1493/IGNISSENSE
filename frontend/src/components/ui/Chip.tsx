@@ -118,3 +118,23 @@ export function CandidateChip() {
     </span>
   );
 }
+
+/**
+ * Shown in place of `CandidateChip` when the classifier never ran — e.g. a
+ * detection gated out for lack of resolvable spatial features. Same
+ * achromatic treatment; the icon and label deliberately avoid implying any
+ * machine-generated verdict.
+ */
+export function NotClassifiedChip() {
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-md border border-hairline bg-[rgba(15,18,22,0.05)] px-1.5 py-[2px] text-[10px] font-semibold uppercase tracking-[0.07em] text-ink-2"
+      title="The classifier did not run: required spatial features could not be measured."
+    >
+      <span className="material-symbols-outlined" style={{ fontSize: 11 }} aria-hidden="true">
+        layers_clear
+      </span>
+      Not classified
+    </span>
+  );
+}

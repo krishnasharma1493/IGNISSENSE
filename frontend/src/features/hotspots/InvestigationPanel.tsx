@@ -12,7 +12,7 @@ import {
   formatUtc,
   titleise,
 } from '../../lib/format';
-import { CandidateChip, ClassChip } from '../../components/ui/Chip';
+import { CandidateChip, ClassChip, NotClassifiedChip } from '../../components/ui/Chip';
 import FrpTrajectory from './FrpTrajectory';
 
 interface InvestigationPanelProps {
@@ -85,7 +85,11 @@ export default function InvestigationPanel({
         <div className="min-w-0 flex-1">
           <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
             {predicted ? <ClassChip cls={predicted} size="md" /> : null}
-            <CandidateChip />
+            {classification?.pipelineStatus === 'classified' ? (
+              <CandidateChip />
+            ) : classification?.pipelineStatus === 'unclassified_insufficient_features' ? (
+              <NotClassifiedChip />
+            ) : null}
           </div>
 
           <h2 className="num truncate text-[15px] font-semibold leading-tight text-ink">{eventId}</h2>
