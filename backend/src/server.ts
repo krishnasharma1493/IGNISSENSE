@@ -30,9 +30,23 @@ async function startServer() {
       }
     };
 
-    // Run first sync 5 seconds after boot, then every 5 minutes
-    setTimeout(runLiveSyncLoop, 5000);
-    setInterval(runLiveSyncLoop, 5 * 60 * 1000);
+    // Run first sync 5 seconds after boot, then every 5 minutes.
+    // Before the first sync, recover any FIRMS polls silently skipped by a
+    // restart mid-cycle. A catch-up failure must never prevent the regular
+    // interval from starting, and since this runs inside a setTimeout
+    // callback, a rejection here would NOT be caught by the outer try/catch
+    // (that block has already returned by the time this fires) — so it is
+    // caught locally instead.
+    setTimeout(async () => {
+      try {
+        const { runCatchupIfNeeded } = await import('./modules/ingestion/catchup.service');
+        await runCatchupIfNeeded();
+      } catch (err: any) {
+        console.error('[Catchup] Failed to recover skipped polls:', err.message);
+      } finally {
+        setInterval(runLiveSyncLoop, 5 * 60 * 1000);
+      }
+    }, 5000);
   } catch (err: any) {
     console.error('[DB] Initial background connection error:', err.message);
     process.exit(1);
