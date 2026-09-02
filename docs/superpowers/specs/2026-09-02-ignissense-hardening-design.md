@@ -73,65 +73,117 @@ a duplicate rather than an error, and every sensor run writes an `IngestionLog` 
 
 ## 4. Phase 1 — Liquid Glass navbar
 
+The design reference for this project is **`AppleSKILL.md`** at the repository root.
+`DESIGN.md` has been explicitly retired by the user and is not authoritative; the Impeccable
+hook's `design-system-*` rules, which audit against it, are disabled in `.impeccable/config.json`.
+
 ### 4.1 The material
 
-Generic glassmorphism blurs the backdrop. Liquid Glass *refracts* it. The design is four
-layers on the existing `AppBar`, composed so that the expensive parts stay small.
+Generic glassmorphism blurs the backdrop. Liquid Glass *refracts* it. Four layers on the
+existing `AppBar`, composed so the expensive parts stay small.
 
 | Layer | Treatment | Purpose |
 |---|---|---|
 | Body | `backdrop-filter: blur(24px) saturate(180%) brightness(1.03)` | Base material |
 | Rim lens | 12px band at the lower edge, separately tuned stronger backdrop-filter | Thicker glass bends light most at the rim; this is the optical warping |
-| Specular | 1px inset top highlight + one broad low-opacity sheen | Depth, without neon |
+| Specular | 1px bright top edge + one broad low-opacity sheen | Light catching the material (AppleSKILL §12) |
 | Organic edge | SVG `feTurbulence` + `feDisplacementMap`, scoped to the rim band only | Liquid warp, not decorative bubbles |
 
 Blur is deliberately moderate at 24px. The brief forbids blur that costs map readability, and
 the bar is 44px tall so the composited area stays small over a moving WebGL canvas.
 
+Three constraints from AppleSKILL §12 that the current codebase must respect:
+
+- **Never stack a light translucent surface on another.** Nested groupings inside the bar use
+  the opaque `inset-surface` treatment, never a second `backdrop-filter`. Legibility collapses
+  otherwise, and stacked blurs are also what made the pre-existing build feel muddy.
+- **Bigger surfaces read as thicker.** The navbar takes stronger blur and a deeper shadow than
+  small chips and popovers, so weight encodes hierarchy rather than every surface looking alike.
+- **Scroll edge effects, not hard dividers.** The current 1px hairline under floating chrome is
+  replaced by a short gradient/blur fade mask, applied only where the bar actually overlaps
+  content.
+
 ### 4.2 Browser support risk and fallback
 
-`backdrop-filter: url(#svg-filter)` has uneven support: Chrome yes, Firefox no, Safari
-partial. The displacement layer is therefore **progressive enhancement, feature-detected at
-runtime** via `CSS.supports('backdrop-filter', 'url(#x)')`.
+`backdrop-filter: url(#svg-filter)` has uneven support: Chrome yes, Firefox no, Safari partial.
+The displacement layer is therefore **progressive enhancement, feature-detected at runtime**
+via `CSS.supports('backdrop-filter', 'url(#x)')`.
 
 Where unsupported, the rim degrades to a tuned gradient plus blur band that still reads as
-glass. A spike verifies actual rendering before the effect ships; an effect that silently
-does nothing in the demo browser is worse than no effect.
+glass. A spike verifies actual rendering before the effect ships; an effect that silently does
+nothing in the demo browser is worse than no effect.
 
 Continuous corner radius uses `corner-shape: squircle` where supported and a tuned
 `border-radius` otherwise.
 
 ### 4.3 Navigation active state
 
-Today the active tab is an accent-filled chip sitting *on* the glass. It will instead become a
-thicker lens *within* the same material: marginally brighter backdrop, inset top highlight,
-soft inner shadow at its base, and the label stepping up in weight. It should read as a raised
-droplet of the same glass rather than a coloured sticker applied to it.
+Today the active tab is an accent-filled chip sitting *on* the glass. It becomes a thicker lens
+*within* the same material: marginally brighter backdrop, inset top highlight, soft inner shadow
+at its base, and the label stepping up in weight. It should read as a raised droplet of the same
+glass, not a coloured sticker applied to it.
 
-### 4.4 Motion and accessibility
+Per AppleSKILL §1, press feedback fires on **pointer-down, not on release**. Per §4, the state
+transition uses a critically damped spring — `damping 1.0`, `response 0.3` — not a fixed-duration
+CSS transition, so it can be interrupted by a second click mid-flight. Per §7, the popovers the
+bar opens (search results, pipeline status) scale from their trigger's `transform-origin`, not
+from their own centre, and dismiss along the path they entered.
 
-All motion respects `prefers-reduced-motion`, which drops the displacement layer entirely.
-Contrast of every label against the material must meet 4.5:1 over both bright and dark
-satellite imagery; this is verified by measurement, not by eye. Focus rings, keyboard order
-and touch target sizes are preserved from the current implementation.
+### 4.4 Vibrancy and typography
 
-### 4.5 Responsive behaviour
+AppleSKILL §12 forbids flat grey text over translucent material. The current bar uses `ink-3`
+grey labels on glass, which must change: text over the material takes **higher contrast, a
+slightly heavier weight, and a small positive letter-spacing bump**. Colour goes on a solid
+layer, never on the translucent foreground.
 
-Desktop shows brand, section labels, search, status and export. Tablet drops section text
-labels to icons. Mobile collapses search into an icon that expands to a full-width sheet, and
-the status cluster reduces to its indicator dot. No horizontal overflow at 375, 768, 1024 or
-1440.
+AppleSKILL §15 requires **size-specific tracking**; a single `letter-spacing` value is wrong
+somewhere by definition. The documented ramp in `index.css` gains a tracking column:
 
-### 4.6 Files
+| Size | Tracking | Use |
+|---|---|---|
+| 20–22px | `-0.02em` | Page titles |
+| 15–17px | `-0.01em` | Section headings |
+| 12–14px | `0` | Body, labels |
+| 10–11px | `+0.01em` | Micro-labels, axis ticks, over-material text |
+
+Leading tracks size inversely: tight on large headings, looser on body, tightened again for the
+dense investigation panel.
+
+### 4.5 Accessibility — three independent signals
+
+The earlier work handled only `prefers-reduced-motion`. AppleSKILL §14 requires all three, and
+each gets a real implementation rather than a token one:
+
+| Signal | Response |
+|---|---|
+| `prefers-reduced-motion: reduce` | Drop the displacement layer and all springs; short opacity cross-fades only |
+| `prefers-reduced-transparency: reduce` | Raise background opacity to near-solid, drop `backdrop-filter` entirely |
+| `prefers-contrast: more` | Near-solid backgrounds with a defined contrasting border |
+
+Contrast of every label against the material must meet 4.5:1 over both bright desert and dark
+forest imagery, verified by measurement rather than by eye. Focus rings, keyboard order and
+touch target sizes are preserved from the current implementation.
+
+### 4.6 Responsive behaviour
+
+Desktop shows brand, section labels, search, status and export. Tablet drops section text labels
+to icons. Mobile collapses search into an icon that expands to a full-width sheet, and the status
+cluster reduces to its indicator dot. No horizontal overflow at 375, 768, 1024 or 1440.
+
+Per AppleSKILL §15, spacing scales in `rem`/`em` rather than fixed px so a larger user text
+setting does not break the layout.
+
+### 4.7 Files
 
 - `frontend/src/components/ui/LiquidGlass.tsx` (new) — material primitive
 - `frontend/src/components/ui/GlassFilters.tsx` (new) — SVG filter defs, mounted once
 - `frontend/src/components/AppBar.tsx` — adopt the material and new active state
-- `frontend/src/index.css` — material tokens and layers
+- `frontend/src/index.css` — material layers, tracking ramp, the three accessibility signals
+
+A spring library is required for §4.3. `motion` is added as a frontend dependency; it is ~5 kB
+for the subset used and is the library AppleSKILL maps its damping/response values onto.
 
 No other files change in Phase 1.
-
----
 
 ## 5. Phase 2 — Data integrity
 

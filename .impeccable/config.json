@@ -1,0 +1,21 @@
+{
+  "detector": {
+    "ignoreRules": [
+      "design-system-color",
+      "design-system-font",
+      "design-system-font-size",
+      "design-system-radius",
+      "design-system-spacing",
+      "design-system-shadow"
+    ],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "design-system-font-size",
+        "value": "10px",
+        "createdAt": "2026-09-02T15:28:35.942Z",
+        "reason": "Bottom step of the 10/11/12/13/14/15/17/20/22 ramp Claude documented in frontend/src/index.css for the dense analyst workstation UI. Used for chart axis ticks and legends. DESIGN.md documents the Wise brand system, which the user superseded by directing a light macOS-26 glassmorphic direction; its 12px caption floor no longer describes this frontend."
+      }
+    ]
+  }
+}
