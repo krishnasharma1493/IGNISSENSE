@@ -123,14 +123,64 @@ export interface ApiError {
   };
 }
 
-// Classification display metadata
-export const CLASS_CONFIG: Record<ClassificationClass, { label: string; color: string; icon: string }> = {
-  industrial_fire: { label: 'Industrial Fire', color: '#EF4444', icon: '🏭' },
-  gas_flare: { label: 'Gas Flare', color: '#F97316', icon: '🔥' },
-  wildfire: { label: 'Wildfire', color: '#22C55E', icon: '🌲' },
-  agricultural_burning: { label: 'Agricultural Burning', color: '#EAB308', icon: '🌾' },
-  mining_thermal_activity: { label: 'Mining Thermal', color: '#A855F7', icon: '⛏️' },
-  other_or_uncertain: { label: 'Uncertain', color: '#6B7280', icon: '❓' },
+/**
+ * Classification display metadata.
+ *
+ * Each class carries two colours rather than one. `ink` is dark enough to clear
+ * 4.5:1 on the light glass material and is used for panel text, legends, chips
+ * and bars. `mark` is the vivid variant used only for map markers, which sit on
+ * satellite imagery rather than on the material. Using `mark` inside a panel or
+ * `ink` on the map will look wrong in both directions.
+ *
+ * `icon` is a Material Symbols ligature. Emoji are not used as icons anywhere.
+ */
+export interface ClassDisplay {
+  label: string;
+  /** Legible on light glass — panels, legends, chips, text. */
+  ink: string;
+  /** Vivid — map markers over imagery only. */
+  mark: string;
+  /** Material Symbols ligature name. */
+  icon: string;
+}
+
+export const CLASS_CONFIG: Record<ClassificationClass, ClassDisplay> = {
+  industrial_fire: {
+    label: 'Industrial Fire',
+    ink: '#B3261E',
+    mark: '#FF3B30',
+    icon: 'factory',
+  },
+  gas_flare: {
+    label: 'Gas Flare',
+    ink: '#A24A05',
+    mark: '#FF8A00',
+    icon: 'local_fire_department',
+  },
+  wildfire: {
+    label: 'Wildfire',
+    ink: '#1B6B3A',
+    mark: '#34C759',
+    icon: 'forest',
+  },
+  agricultural_burning: {
+    label: 'Agricultural Burning',
+    ink: '#8A6100',
+    mark: '#FFCC00',
+    icon: 'agriculture',
+  },
+  mining_thermal_activity: {
+    label: 'Mining Thermal',
+    ink: '#6B3FA0',
+    mark: '#AF52DE',
+    icon: 'terrain',
+  },
+  other_or_uncertain: {
+    label: 'Uncertain',
+    ink: '#5A6069',
+    mark: '#8E8E93',
+    icon: 'help',
+  },
 };
 
 // Delhi NCR bounds

@@ -1,204 +1,207 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import SideNavBar from './components/SideNavBar';
-import type { PageTab } from './components/SideNavBar';
-import TopNavBar from './components/TopNavBar';
-import Footer from './components/Footer';
+import AppBar from './components/AppBar';
+import type { PageTab } from './components/AppBar';
+import Panel from './components/ui/Panel';
 import MapPage from './pages/MapPage';
 import DashboardPage from './features/dashboard/DashboardPage';
 import AlertsPage from './features/alerts/AlertsPage';
-import { useHotspots, useAlerts } from './api/hooks';
+import { useHotspots } from './api/hooks';
 import { SearchProvider } from './context/SearchContext';
 import type { SearchResultItem } from './context/SearchContext';
 
 const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 1,
-      staleTime: 30000,
-    },
-  },
+  defaultOptions: { queries: { retry: 1, staleTime: 30_000 } },
 });
+
+function download(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 function AppContent() {
   const [activeTab, setActiveTab] = useState<PageTab>('map');
   const [selectedHotspotId, setSelectedHotspotId] = useState<string | null>(null);
-  const [showExportModal, setShowExportModal] = useState<boolean>(false);
+  const [exportOpen, setExportOpen] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
 
-  const { data: hotspotsData } = useHotspots({ limit: '1000' });
-  const { data: alertsData } = useAlerts({ status: 'open' });
+  const { data: hotspotsData } = useHotspots({ limit: '5000' });
+  const hotspots = hotspotsData?.hotspots ?? [];
 
-  const handleInvestigateHotspot = (hotspotId: string) => {
+  const investigate = (hotspotId: string) => {
     setSelectedHotspotId(hotspotId);
     setActiveTab('map');
   };
 
-  const handleSelectSearchResult = (result: SearchResultItem) => {
-    if (result.data?.hotspotId) {
-      setSelectedHotspotId(result.data.hotspotId);
-    }
+  const onSearchResult = (r: SearchResultItem) => {
+    if (r.data?.hotspotId) setSelectedHotspotId(r.data.hotspotId);
     setActiveTab('map');
   };
 
-  const handleExportGeoJson = () => {
-    const hotspots = hotspotsData?.hotspots || [];
-    const geoJson = {
-      type: 'FeatureCollection',
-      metadata: {
-        generatedAt: new Date().toISOString(),
-        region: 'Delhi NCR Focus',
-        source: 'NASA FIRMS VIIRS/MODIS + OpenStreetMap Enrichment',
-        totalFeatures: hotspots.length,
-      },
-      features: hotspots.map((h) => ({
-        type: 'Feature',
-        geometry: h.location,
-        properties: {
-          id: h._id,
-          detectedAt: h.detectedAt,
-          frp: h.frp,
-          brightness: h.brightness,
-          satellite: h.satellite,
-          instrument: h.instrument,
-          confidence: h.confidence,
-          region: h.region,
-        },
-      })),
-    };
+  useEffect(() => {
+    if (!exportOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setExportOpen(false);
+    window.addEventListener('keydown', onKey);
+    dialogRef.current?.focus();
+    return () => window.removeEventListener('keydown', onKey);
+  }, [exportOpen]);
 
-    const blob = new Blob([JSON.stringify(geoJson, null, 2)], { type: 'application/geo+json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `ignissense-delhincr-hotspots-${new Date().toISOString().slice(0, 10)}.geojson`;
-    a.click();
-    setShowExportModal(false);
+  const stamp = new Date().toISOString().slice(0, 10);
+
+  const exportGeoJson = () => {
+    download(
+      new Blob(
+        [
+          JSON.stringify(
+            {
+              type: 'FeatureCollection',
+              metadata: {
+                generatedAt: new Date().toISOString(),
+                source: 'NASA FIRMS (VIIRS/MODIS) with OpenStreetMap enrichment',
+                totalFeatures: hotspots.length,
+              },
+              features: hotspots.map((h) => ({
+                type: 'Feature',
+                geometry: h.location,
+                properties: {
+                  id: h._id,
+                  detectedAt: h.detectedAt,
+                  frp: h.frp,
+                  brightness: h.brightness,
+                  brightnessTi5: h.brightnessTi5,
+                  satellite: h.satellite,
+                  instrument: h.instrument,
+                  confidence: h.confidence,
+                  dayNight: h.dayNight,
+                  region: h.region,
+                },
+              })),
+            },
+            null,
+            2
+          ),
+        ],
+        { type: 'application/geo+json' }
+      ),
+      `ignissense-detections-${stamp}.geojson`
+    );
+    setExportOpen(false);
   };
 
-  const handleExportCsv = () => {
-    const hotspots = hotspotsData?.hotspots || [];
-    const headers = 'ID,Longitude,Latitude,DetectedAt,FRP_MW,Brightness_K,Instrument,Satellite,Confidence,Region\n';
+  const exportCsv = () => {
+    const header =
+      'id,longitude,latitude,detected_at,frp_mw,brightness_k,brightness_ti5_k,instrument,satellite,firms_confidence,day_night,region\n';
+    // Null stays empty in the CSV rather than becoming a zero.
+    const cell = (v: unknown) => (v === null || v === undefined ? '' : String(v));
     const rows = hotspots
-      .map(
-        (h) =>
-          `"${h._id}",${h.location.coordinates[0]},${h.location.coordinates[1]},"${h.detectedAt}",${h.frp || 0},${h.brightness || 0},"${h.instrument}","${h.satellite}","${h.confidence}","${h.region}"`
+      .map((h) =>
+        [
+          `"${h._id}"`,
+          h.location.coordinates[0],
+          h.location.coordinates[1],
+          `"${h.detectedAt}"`,
+          cell(h.frp),
+          cell(h.brightness),
+          cell(h.brightnessTi5),
+          `"${cell(h.instrument)}"`,
+          `"${cell(h.satellite)}"`,
+          `"${cell(h.confidence)}"`,
+          `"${cell(h.dayNight)}"`,
+          `"${cell(h.region)}"`,
+        ].join(',')
       )
       .join('\n');
-
-    const blob = new Blob([headers + rows], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `ignissense-india-hotspots-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    setShowExportModal(false);
+    download(new Blob([header + rows], { type: 'text/csv' }), `ignissense-detections-${stamp}.csv`);
+    setExportOpen(false);
   };
 
   return (
-    <div className="bg-background text-on-surface h-screen w-screen overflow-hidden relative font-body-md text-body-md antialiased">
-      {/* Map layer is always rendered as the base layer (z-0) */}
+    <div className="relative h-screen w-screen overflow-hidden bg-canvas text-ink antialiased">
+      {/* The map is the base layer and stays mounted, so returning to it never
+          costs a re-initialisation of the WebGL context. */}
       <div className="absolute inset-0 z-0">
-        <MapPage
-          initialSelectedHotspotId={selectedHotspotId}
-          initialInvestigate={!!selectedHotspotId}
-        />
+        <MapPage selectedHotspotId={selectedHotspotId} onSelectHotspot={setSelectedHotspotId} />
       </div>
 
+      {activeTab !== 'map' ? (
+        <div className="absolute inset-0 z-30 overflow-y-auto bg-canvas px-6 pb-8 pt-[68px]">
+          {activeTab === 'dashboard' || activeTab === 'analytics' ? (
+            <DashboardPage
+              variant={activeTab}
+              onInvestigate={investigate}
+              onOpenMap={() => setActiveTab('map')}
+            />
+          ) : null}
+          {activeTab === 'alerts' ? <AlertsPage onInvestigate={investigate} /> : null}
+        </div>
+      ) : null}
 
-      {/* Floating UI Layer */}
-      <TopNavBar
-        selectedRegion="Whole India"
-        onSelectSearchResult={handleSelectSearchResult}
-      />
-      <SideNavBar
+      <AppBar
         activeTab={activeTab}
         onTabChange={setActiveTab}
-        onExportDossier={() => setShowExportModal(true)}
+        onSelectSearchResult={onSearchResult}
+        onExport={() => setExportOpen(true)}
       />
 
-      {/* Overlay pages (Dashboard/Alerts/Analytics) slide over the map */}
-      {activeTab !== 'map' && (
+      {exportOpen ? (
         <div
-          className={`absolute inset-0 z-30 overflow-auto pt-24 pl-24 pb-20 pr-6 transition-colors duration-200 ${
-            activeTab === 'alerts'
-              ? 'bg-[#F8F9FA]/95 backdrop-blur-xl'
-              : 'bg-background/90 backdrop-blur-sm'
-          }`}
+          className="fixed inset-0 z-[60] grid place-items-center bg-[rgba(15,18,22,0.35)] p-4 backdrop-blur-sm"
+          onClick={(e) => e.target === e.currentTarget && setExportOpen(false)}
         >
-          {activeTab === 'dashboard' && (
+          <Panel
+            level="popover"
+            className="arrive w-full max-w-sm rounded-xl p-4"
+          >
+            <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="export-title" tabIndex={-1}>
+              <h2 id="export-title" className="text-[14px] font-semibold text-ink">
+                Export detections
+              </h2>
+              <p className="mt-1 text-[12px] leading-relaxed text-ink-2">
+                Observed FIRMS fields only. Model classifications are excluded — they are decision
+                support, and exporting them alongside measurements invites them to be read as
+                observations.
+              </p>
 
-            <DashboardPage onNavigateToMap={(hId) => (hId ? handleInvestigateHotspot(hId) : setActiveTab('map'))} />
-          )}
-          {activeTab === 'alerts' && (
-            <AlertsPage
-              onInvestigateHotspot={handleInvestigateHotspot}
-              onNavigateToMap={(hId) => (hId ? handleInvestigateHotspot(hId) : setActiveTab('map'))}
-            />
-          )}
-          {activeTab === 'analytics' && (
-            <DashboardPage onNavigateToMap={(hId) => (hId ? handleInvestigateHotspot(hId) : setActiveTab('map'))} />
-          )}
+              <p className="num mt-3 rounded-md border border-hairline bg-[rgba(15,18,22,0.035)] px-2.5 py-2 text-[11px] text-ink-2">
+                {hotspots.length.toLocaleString()} detections in the current result set
+              </p>
+
+              <div className="mt-3 flex flex-col gap-1.5">
+                <button
+                  type="button"
+                  onClick={exportGeoJson}
+                  className="ctl h-9 w-full justify-between border border-hairline px-3 text-[12px]"
+                >
+                  <span className="font-medium text-ink">GeoJSON</span>
+                  <span className="text-[11px] text-ink-3">QGIS, ArcGIS</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={exportCsv}
+                  className="ctl h-9 w-full justify-between border border-hairline px-3 text-[12px]"
+                >
+                  <span className="font-medium text-ink">CSV</span>
+                  <span className="text-[11px] text-ink-3">Excel, R, pandas</span>
+                </button>
+              </div>
+
+              <div className="mt-3 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setExportOpen(false)}
+                  className="ctl h-7 px-3 text-[12px]"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </Panel>
         </div>
-      )}
-
-      <Footer />
-
-      {/* Export Incident Dossier Modal (PRD Compliant) */}
-      {showExportModal && (
-        <div className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="glass-panel rounded-xl p-6 max-w-md w-full shadow-2xl border border-outline-variant/50">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-8 h-8 rounded-xl liquid-glass-interactive flex items-center justify-center p-1.5 border border-white/20 bg-slate-950/40">
-                <img src="/logo-white.png" alt="IGNISSENSE" className="w-full h-full object-contain filter drop-shadow-[0_0_6px_rgba(56,189,248,0.5)]" />
-              </div>
-              <h3 className="font-headline-md text-[20px] font-black text-on-surface">Export Incident Dossier</h3>
-            </div>
-            <p className="font-body-md text-on-surface-variant text-[14px] mb-4 leading-relaxed">
-              Export verified NASA satellite detections and spatial intelligence for offline GIS analysis, SDMA briefings, or regulatory reporting.
-            </p>
-            <div className="bg-surface-container-lowest p-3 rounded-lg border border-outline-variant/30 font-label-sm text-on-surface mb-4">
-              <div className="flex justify-between py-1 border-b border-outline-variant/20">
-                <span className="text-on-surface-variant text-xs uppercase">Active Observations</span>
-                <span className="font-bold text-primary font-mono">{hotspotsData?.count || 0} Events</span>
-              </div>
-              <div className="flex justify-between py-1">
-                <span className="text-on-surface-variant text-xs uppercase">AI Alert Candidates</span>
-                <span className="font-bold text-tertiary font-mono">{alertsData?.count || 0} Alerts</span>
-              </div>
-            </div>
-            <div className="flex flex-col gap-2 mb-4">
-              <button
-                onClick={handleExportGeoJson}
-                className="w-full py-2.5 px-3 rounded-lg bg-surface-container-low hover:bg-surface-container-high border border-outline-variant/30 text-left flex items-center justify-between text-sm transition-colors"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-primary text-[18px]">public</span>
-                  <span className="font-semibold text-on-surface">Standard GeoJSON (.geojson)</span>
-                </div>
-                <span className="text-xs text-outline">For QGIS / ArcGIS</span>
-              </button>
-              <button
-                onClick={handleExportCsv}
-                className="w-full py-2.5 px-3 rounded-lg bg-surface-container-low hover:bg-surface-container-high border border-outline-variant/30 text-left flex items-center justify-between text-sm transition-colors"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-secondary text-[18px]">table_chart</span>
-                  <span className="font-semibold text-on-surface">Tabular Dataset (.csv)</span>
-                </div>
-                <span className="text-xs text-outline">For Excel / R</span>
-              </button>
-            </div>
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setShowExportModal(false)}
-                className="px-4 py-2 rounded-lg border border-outline-variant/50 text-on-surface hover:bg-surface-container-high text-sm font-semibold transition-colors"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      ) : null}
     </div>
   );
 }

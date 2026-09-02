@@ -1,0 +1,337 @@
+import { useState, useRef, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '../api/client';
+import { useHotspots, useFacilities, useSystemStatus, useSyncFirms, useAlerts } from '../api/hooks';
+import { useSearch, parseCoordinates } from '../context/SearchContext';
+import type { SearchResultItem } from '../context/SearchContext';
+import type { Classification } from '../types';
+import Panel from './ui/Panel';
+
+export type PageTab = 'map' | 'dashboard' | 'alerts' | 'analytics';
+
+const TABS: { id: PageTab; label: string; icon: string }[] = [
+  { id: 'map', label: 'Map', icon: 'public' },
+  { id: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
+  { id: 'alerts', label: 'Alerts', icon: 'notifications' },
+  { id: 'analytics', label: 'Analytics', icon: 'monitoring' },
+];
+
+interface AppBarProps {
+  activeTab: PageTab;
+  onTabChange: (t: PageTab) => void;
+  onSelectSearchResult: (r: SearchResultItem) => void;
+  onExport: () => void;
+}
+
+/**
+ * The single chrome surface. Brand, section navigation, search, pipeline state
+ * and export all live here, so the map keeps the whole viewport beneath it.
+ */
+export default function AppBar({
+  activeTab,
+  onTabChange,
+  onSelectSearchResult,
+  onExport,
+}: AppBarProps) {
+  const { searchQuery, setSearchQuery, performSearch, navigateToLocation } = useSearch();
+  const { data: status } = useSystemStatus();
+  const { data: openAlerts } = useAlerts({ status: 'open' });
+  const sync = useSyncFirms();
+
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [statusOpen, setStatusOpen] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const searchRef = useRef<HTMLDivElement>(null);
+  const statusRef = useRef<HTMLDivElement>(null);
+
+  const { data: hotspotsData } = useHotspots({ limit: '1000' });
+  const { data: facilitiesData } = useFacilities({ limit: '1000' });
+  const { data: classifications } = useQuery({
+    queryKey: ['all-classifications'],
+    queryFn: async () => {
+      const res = await api.get('/classifications', { params: { limit: '5000' } });
+      const map = new Map<string, Classification>();
+      if (res.data?.success && Array.isArray(res.data.data?.classifications)) {
+        for (const c of res.data.data.classifications as Classification[]) map.set(c.hotspotId, c);
+      }
+      return map;
+    },
+    staleTime: 30_000,
+  });
+
+  const results = performSearch(
+    searchQuery,
+    hotspotsData?.hotspots ?? [],
+    facilitiesData?.facilities ?? [],
+    classifications ?? new Map()
+  );
+
+  useEffect(() => {
+    const onDown = (e: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) setSearchOpen(false);
+      if (statusRef.current && !statusRef.current.contains(e.target as Node)) setStatusOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const typing = ['INPUT', 'TEXTAREA', 'SELECT'].includes(
+        (document.activeElement?.tagName ?? '').toUpperCase()
+      );
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        inputRef.current?.focus();
+        setSearchOpen(true);
+      } else if (e.key === '/' && !typing) {
+        e.preventDefault();
+        inputRef.current?.focus();
+        setSearchOpen(true);
+      } else if (e.key === 'Escape') {
+        setSearchOpen(false);
+        setStatusOpen(false);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  const choose = (r: SearchResultItem) => {
+    navigateToLocation({
+      coordinates: r.coordinates,
+      label: r.title,
+      zoom: r.data?.zoom ?? 14,
+      hotspotId: r.data?.hotspotId,
+      facilityId: r.data?.facilityId,
+    });
+    onSelectSearchResult(r);
+    setSearchOpen(false);
+  };
+
+  const submit = () => {
+    const q = searchQuery.trim();
+    if (!q) return;
+    const coords = parseCoordinates(q);
+    if (coords) {
+      navigateToLocation({
+        coordinates: coords,
+        label: `${coords[1].toFixed(4)}, ${coords[0].toFixed(4)}`,
+        zoom: 14,
+      });
+      setSearchOpen(false);
+      return;
+    }
+    if (results.length) choose(results[0]);
+  };
+
+  const services = [
+    { label: 'NASA FIRMS', ok: Boolean(status?.firmsConnected) },
+    { label: 'Inference service', ok: status?.modelStatus === 'ready' },
+    { label: 'Database', ok: status?.databaseStatus === 'connected' },
+  ];
+  const allOk = services.every((s) => s.ok);
+  const openAlertCount = openAlerts?.count ?? 0;
+
+  return (
+    <Panel
+      as="header"
+      level="chrome"
+      className="absolute left-4 right-4 top-4 z-50 flex h-11 items-center gap-2 rounded-lg px-2"
+    >
+      {/* Brand */}
+      <div className="flex shrink-0 items-center gap-2 pl-1 pr-1">
+        <img src="/logo-dark.png" alt="" className="h-4 w-4 object-contain" aria-hidden="true" />
+        <span className="text-[13px] font-semibold tracking-tight text-ink">IGNISSENSE</span>
+      </div>
+
+      <span className="h-4 w-px shrink-0 bg-hairline" aria-hidden="true" />
+
+      {/* Sections */}
+      <nav aria-label="Sections" className="flex shrink-0 items-center gap-0.5">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => onTabChange(t.id)}
+            aria-current={activeTab === t.id ? 'page' : undefined}
+            data-active={activeTab === t.id ? 'true' : undefined}
+            className="ctl relative h-7 px-2 text-[12px]"
+          >
+            <span
+              className="material-symbols-outlined"
+              style={{ fontSize: 15 }}
+              data-filled={activeTab === t.id ? 'true' : undefined}
+              aria-hidden="true"
+            >
+              {t.icon}
+            </span>
+            <span className="hidden md:inline">{t.label}</span>
+            {t.id === 'alerts' && openAlertCount > 0 ? (
+              <span className="num ml-0.5 rounded-full bg-danger-soft px-1.5 py-px text-[10px] font-semibold text-danger">
+                {openAlertCount}
+              </span>
+            ) : null}
+          </button>
+        ))}
+      </nav>
+
+      {/* Search */}
+      <div ref={searchRef} className="relative mx-auto w-full max-w-[380px]">
+        <div className="inset-surface flex items-center gap-1.5 rounded-md px-2 py-1 focus-within:border-accent-line">
+          <span
+            className="material-symbols-outlined text-ink-3"
+            style={{ fontSize: 15 }}
+            aria-hidden="true"
+          >
+            search
+          </span>
+          <input
+            ref={inputRef}
+            type="text"
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setSearchOpen(true);
+            }}
+            onFocus={() => setSearchOpen(true)}
+            onKeyDown={(e) => e.key === 'Enter' && submit()}
+            placeholder="Coordinates, facility, region…"
+            aria-label="Search coordinates, facilities and regions"
+            className="w-full bg-transparent text-[12px] text-ink outline-none placeholder:text-ink-4"
+          />
+          {searchQuery ? (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className="ctl h-5 w-5"
+              aria-label="Clear search"
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: 13 }} aria-hidden="true">
+                close
+              </span>
+            </button>
+          ) : (
+            <kbd className="num hidden shrink-0 rounded border border-hairline px-1 text-[10px] text-ink-4 sm:block">
+              ⌘K
+            </kbd>
+          )}
+        </div>
+
+        {searchOpen && searchQuery.trim() ? (
+          <Panel
+            level="popover"
+            className="arrive absolute left-0 right-0 top-full mt-1.5 max-h-[60vh] overflow-y-auto rounded-lg py-1"
+          >
+            {results.length === 0 ? (
+              <p className="px-3 py-3 text-[11px] text-ink-3">
+                Nothing matched. Try coordinates like{' '}
+                <span className="num text-ink-2">28.6139, 77.2090</span>.
+              </p>
+            ) : (
+              results.map((r) => (
+                <button
+                  key={r.id}
+                  type="button"
+                  onClick={() => choose(r)}
+                  className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left hover:bg-[rgba(15,18,22,0.05)]"
+                >
+                  <span
+                    className="material-symbols-outlined shrink-0 text-ink-3"
+                    style={{ fontSize: 16 }}
+                    aria-hidden="true"
+                  >
+                    {r.icon}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[12px] font-medium text-ink">{r.title}</span>
+                    <span className="block truncate text-[10px] text-ink-3">{r.subtitle}</span>
+                  </span>
+                </button>
+              ))
+            )}
+          </Panel>
+        ) : null}
+      </div>
+
+      {/* Pipeline state */}
+      <div ref={statusRef} className="relative shrink-0">
+        <button
+          type="button"
+          onClick={() => setStatusOpen((v) => !v)}
+          className="ctl h-7 px-2 text-[11px]"
+          aria-expanded={statusOpen}
+          aria-label={`Pipeline status: ${allOk ? 'all services healthy' : 'attention required'}`}
+        >
+          <span
+            className={`h-1.5 w-1.5 rounded-full ${allOk ? 'bg-ok live-dot' : 'bg-warn'}`}
+            aria-hidden="true"
+          />
+          <span className="hidden lg:inline">{allOk ? 'Live' : 'Degraded'}</span>
+        </button>
+
+        {statusOpen ? (
+          <Panel level="popover" className="arrive absolute right-0 top-full mt-1.5 w-60 rounded-lg p-3">
+            <h2 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.06em] text-ink-3">
+              Pipeline
+            </h2>
+            <ul className="mb-2 flex flex-col gap-1">
+              {services.map((s) => (
+                <li key={s.label} className="flex items-center justify-between gap-2 text-[11px]">
+                  <span className="text-ink-2">{s.label}</span>
+                  <span className={`flex items-center gap-1.5 font-medium ${s.ok ? 'text-ok' : 'text-warn'}`}>
+                    <span
+                      className={`h-1.5 w-1.5 rounded-full ${s.ok ? 'bg-ok' : 'bg-warn'}`}
+                      aria-hidden="true"
+                    />
+                    {s.ok ? 'Healthy' : 'Degraded'}
+                  </span>
+                </li>
+              ))}
+            </ul>
+
+            <dl className="border-t border-hairline pt-2 text-[11px]">
+              <div className="flex justify-between gap-2 py-0.5">
+                <dt className="text-ink-3">Last poll</dt>
+                <dd className="num text-ink-2">
+                  {status?.lastSuccessfulPoll
+                    ? new Date(status.lastSuccessfulPoll).toISOString().slice(11, 16) + ' UTC'
+                    : '—'}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-2 py-0.5">
+                <dt className="text-ink-3">Model</dt>
+                <dd className="num truncate text-ink-2">{status?.modelVersion ?? '—'}</dd>
+              </div>
+              {status?.demoMode ? (
+                <div className="mt-1.5 rounded-md bg-warn-soft px-2 py-1.5 text-[10px] leading-relaxed text-warn">
+                  Running against an in-memory database. Figures reflect seeded data, not the live
+                  store.
+                </div>
+              ) : null}
+            </dl>
+
+            <button
+              type="button"
+              onClick={() => sync.mutate({ scope: 'india', dayRange: 2 })}
+              disabled={sync.isPending}
+              className="ctl mt-2 h-7 w-full border border-hairline text-[11px] disabled:opacity-50"
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: 14 }} aria-hidden="true">
+                sync
+              </span>
+              {sync.isPending ? 'Polling FIRMS…' : 'Poll FIRMS now'}
+            </button>
+          </Panel>
+        ) : null}
+      </div>
+
+      <button type="button" onClick={onExport} className="ctl h-7 shrink-0 px-2 text-[11px]">
+        <span className="material-symbols-outlined" style={{ fontSize: 15 }} aria-hidden="true">
+          download
+        </span>
+        <span className="hidden lg:inline">Export</span>
+      </button>
+    </Panel>
+  );
+}

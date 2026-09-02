@@ -1,366 +1,383 @@
 @import "tailwindcss";
 
+/* ============================================================================
+   IGNISSENSE — Light Liquid Glass design system
+   ----------------------------------------------------------------------------
+   A single achromatic material scale floating over satellite imagery.
+   Rule: interface chrome is colourless. Saturated colour appears ONLY where it
+   encodes a thermal-event class, so colour always reads as data.
+   ========================================================================== */
+
 @theme {
-  /* ── Surface & Background (Stitch GIS Command Map palette) ── */
-  --color-surface: #0e1417;
-  --color-surface-dim: #0e1417;
-  --color-surface-bright: #343a3e;
-  --color-surface-container-lowest: #090f12;
-  --color-surface-container-low: #171c20;
-  --color-surface-container: #1b2024;
-  --color-surface-container-high: #252b2e;
-  --color-surface-container-highest: #303639;
-  --color-on-surface: #dee3e8;
-  --color-on-surface-variant: #bcc8d0;
-  --color-inverse-surface: #dee3e8;
-  --color-inverse-on-surface: #2b3135;
-  --color-outline: #87929a;
-  --color-outline-variant: #3d484f;
-  --color-surface-tint: #70d2ff;
-  --color-surface-variant: #303639;
+  /* ── Ground & ink ──────────────────────────────────────────────────────── */
+  --color-canvas: #eef0f3;
+  --color-canvas-sunk: #e4e7eb;
+  --color-ink: #0f1216;
+  --color-ink-2: #464c56;
+  --color-ink-3: #6e7681;
+  --color-ink-4: #949aa4;
+  --color-hairline: rgba(15, 18, 22, 0.10);
+  --color-hairline-strong: rgba(15, 18, 22, 0.18);
 
-  /* ── Primary (Cyan / Ice Blue) ── */
-  --color-primary: #a1dfff;
-  --color-on-primary: #003547;
-  --color-primary-container: #38c8ff;
-  --color-on-primary-container: #00516b;
-  --color-primary-fixed: #c0e8ff;
-  --color-primary-fixed-dim: #70d2ff;
-  --color-inverse-primary: #006686;
+  /* ── Accent — the logo cyan, darkened until it clears 4.5:1 on glass ───── */
+  --color-accent: #0a6c8c;
+  --color-accent-strong: #085974;
+  --color-accent-soft: rgba(10, 108, 140, 0.10);
+  --color-accent-line: rgba(10, 108, 140, 0.35);
 
-  /* ── Secondary (Tactical Green) ── */
-  --color-secondary: #91d963;
-  --color-on-secondary: #153800;
-  --color-secondary-container: #337400;
-  --color-on-secondary-container: #aef87e;
-  --color-secondary-fixed: #acf67c;
-  --color-secondary-fixed-dim: #91d963;
+  /* ── Status ────────────────────────────────────────────────────────────── */
+  --color-ok: #1b6b3a;
+  --color-warn: #8a6100;
+  --color-danger: #b3261e;
+  --color-ok-soft: rgba(27, 107, 58, 0.10);
+  --color-warn-soft: rgba(138, 97, 0, 0.10);
+  --color-danger-soft: rgba(179, 38, 30, 0.10);
 
-  /* ── Tertiary (Warm Amber) ── */
-  --color-tertiary: #ffcd94;
-  --color-on-tertiary: #472a00;
-  --color-tertiary-container: #fca931;
-  --color-on-tertiary-container: #6a4100;
-  --color-tertiary-fixed: #ffddb8;
-  --color-tertiary-fixed-dim: #ffb95e;
+  /* ── Classification hues ───────────────────────────────────────────────────
+     Two tokens per class. `-ink` is legible on light glass (panels, legends,
+     text). `-mark` is the vivid variant used only for map markers, which sit
+     on satellite imagery rather than on the material.                       */
+  --color-cls-industrial-ink: #b3261e;
+  --color-cls-industrial-mark: #ff3b30;
+  --color-cls-flare-ink: #a24a05;
+  --color-cls-flare-mark: #ff8a00;
+  --color-cls-wildfire-ink: #1b6b3a;
+  --color-cls-wildfire-mark: #34c759;
+  --color-cls-agri-ink: #8a6100;
+  --color-cls-agri-mark: #ffcc00;
+  --color-cls-mining-ink: #6b3fa0;
+  --color-cls-mining-mark: #af52de;
+  --color-cls-other-ink: #5a6069;
+  --color-cls-other-mark: #8e8e93;
 
-  /* ── Error ── */
-  --color-error: #ffb4ab;
-  --color-on-error: #690005;
-  --color-error-container: #93000a;
-  --color-on-error-container: #ffdad6;
+  /* ── Type ──────────────────────────────────────────────────────────────── */
+  --font-sans: Inter, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  /* ── Background ── */
-  --color-background: #0e1417;
-  --color-on-background: #dee3e8;
+  /* ── Type ramp ─────────────────────────────────────────────────────────────
+     10 · 11 · 12 · 13 · 14 · 15 · 17 · 20 · 22 (px), all integers.
 
-  /* ── Classification Colors ── */
-  --color-industrial-fire: #ff4b4b;
-  --color-gas-flare: #f59e0b;
-  --color-wildfire: #fbbf24;
-  --color-agri: #facc15;
-  --color-mining: #a855f7;
-  --color-other-status: #64748b;
+     Denser than a marketing type scale because this is an analyst workstation
+     where a panel has to hold a full FIRMS record without scrolling, but it
+     bottoms out at 10px rather than the 9px the earlier build used, and there
+     are no fractional half-steps. Applied as Tailwind arbitrary values; keep
+     new sizes on this ramp.                                                  */
 
-  /* ── Legacy aliases ── */
-  --color-intelligence-blue: #0e1417;
-  --color-shell-slate: #1b2024;
-
-  /* ── Spacing ── */
-  --spacing-base: 8px;
-  --spacing-xs: 4px;
-  --spacing-sm: 8px;
-  --spacing-md: 16px;
-  --spacing-lg: 24px;
-  --spacing-xl: 32px;
-  --spacing-gutter: 24px;
-  --spacing-margin-mobile: 16px;
-  --spacing-margin-desktop: 48px;
-
-  /* ── Typography ── */
-  --font-headline-lg-mobile: Inter, sans-serif;
-  --font-metadata-sm: Inter, sans-serif;
-  --font-body-md: Inter, sans-serif;
-  --font-status-pill: Inter, sans-serif;
-  --font-kpi-value: Inter, sans-serif;
-  --font-label-md: Inter, sans-serif;
-  --font-label-sm: 'JetBrains Mono', monospace;
-  --font-display-xl: Inter, sans-serif;
-  --font-headline-lg: Inter, sans-serif;
-  --font-headline-md: Inter, sans-serif;
+  /* ── Radii — Apple-generous, but only four steps ───────────────────────── */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
 }
 
-/* ── Global Reset (macOS System Typography) ── */
-body {
-  background-color: #080c0e;
-  color: #dee3e8;
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "SF Pro", "Inter", system-ui, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
+/* ============================================================================
+   Base
+   ========================================================================== */
 
-/* ── Scrollbar (Subtle Optical Track) ── */
-::-webkit-scrollbar { width: 4px; height: 4px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 9999px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.28); }
-
-/* ── macOS 26 LIQUID GLASS MATERIAL HIERARCHY ── */
-
-/* 1. Structural Surfaces (Sidebar, Top Navigation Bar) */
-.liquid-glass-structural,
-.glass-panel {
-  background: rgba(13, 18, 22, 0.68);
-  backdrop-filter: blur(24px) saturate(175%);
-  -webkit-backdrop-filter: blur(24px) saturate(175%);
-  border-top: 1px solid rgba(255, 255, 255, 0.22);
-  border-left: 1px solid rgba(255, 255, 255, 0.12);
-  border-right: 1px solid rgba(255, 255, 255, 0.08);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  box-shadow: 
-    0 16px 40px -6px rgba(0, 0, 0, 0.45),
-    0 4px 12px -2px rgba(0, 0, 0, 0.3),
-    inset 0 1px 1px 0 rgba(255, 255, 255, 0.18),
-    inset 0 -1px 1px 0 rgba(0, 0, 0, 0.25);
-}
-
-/* 2. Interactive Surfaces (Search, Filter Pills, Map Tools, Controls) */
-.liquid-glass-interactive {
-  background: rgba(20, 26, 32, 0.58);
-  backdrop-filter: blur(18px) saturate(185%);
-  -webkit-backdrop-filter: blur(18px) saturate(185%);
-  border-top: 1px solid rgba(255, 255, 255, 0.25);
-  border-left: 1px solid rgba(255, 255, 255, 0.14);
-  border-right: 1px solid rgba(255, 255, 255, 0.08);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-  box-shadow: 
-    0 6px 20px -3px rgba(0, 0, 0, 0.35),
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.22),
-    inset 0 -1px 0 0 rgba(0, 0, 0, 0.2);
-  transition: 
-    transform 160ms cubic-bezier(0.23, 1, 0.32, 1),
-    background-color 160ms ease,
-    border-color 160ms ease,
-    box-shadow 160ms ease;
-}
-
-.liquid-glass-interactive:hover {
-  background: rgba(28, 36, 44, 0.70);
-  border-top-color: rgba(255, 255, 255, 0.35);
-  box-shadow: 
-    0 8px 24px -2px rgba(0, 0, 0, 0.42),
-    inset 0 1px 1px 0 rgba(255, 255, 255, 0.3);
-}
-
-/* 3. Contextual Surfaces (Hotspot Inspector, Live Stream Drawer, Popovers) */
-.liquid-glass-contextual {
-  background: rgba(11, 15, 19, 0.76);
-  backdrop-filter: blur(28px) saturate(185%);
-  -webkit-backdrop-filter: blur(28px) saturate(185%);
-  border-top: 1px solid rgba(255, 255, 255, 0.28);
-  border-left: 1px solid rgba(255, 255, 255, 0.15);
-  border-right: 1px solid rgba(255, 255, 255, 0.08);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  box-shadow: 
-    0 24px 60px -8px rgba(0, 0, 0, 0.6),
-    0 8px 20px -3px rgba(0, 0, 0, 0.35),
-    inset 0 1px 1px 0 rgba(255, 255, 255, 0.25),
-    inset 0 -1px 1px 0 rgba(0, 0, 0, 0.3);
-  animation: liquid-materialize 220ms cubic-bezier(0.23, 1, 0.32, 1) forwards;
-}
-
-/* ── Apple-Style Tactile Button Behavior (Spring Motion) ── */
-.liquid-btn {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition: 
-    transform 160ms cubic-bezier(0.23, 1, 0.32, 1),
-    background-color 160ms ease,
-    border-color 160ms ease,
-    box-shadow 160ms ease;
-  user-select: none;
-  -webkit-user-select: none;
-}
-
-.liquid-btn:active {
-  transform: scale(0.965);
-}
-
-/* ── Spatial Materialization (Panel Arrival from trigger point) ── */
-@keyframes liquid-materialize {
-  0% {
-    opacity: 0;
-    transform: scale(0.96) translateY(6px);
-    filter: blur(4px);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-    filter: blur(0px);
-  }
-}
-
-/* ── Typography Refinement (SF Pro Optical Kerning) ── */
-.sf-display {
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro", system-ui, sans-serif;
-  letter-spacing: -0.025em;
-}
-
-.sf-headline {
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro", system-ui, sans-serif;
-  letter-spacing: -0.015em;
-}
-
-.sf-subhead {
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro", system-ui, sans-serif;
-  letter-spacing: -0.005em;
-}
-
-.sf-metadata {
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro", system-ui, sans-serif;
-  letter-spacing: 0.035em;
-}
-
-/* ── Focus Glow for Inputs ── */
-.tech-border-glow:focus-within {
-  border-color: rgba(161, 223, 255, 0.6);
-  box-shadow: 
-    0 0 0 3px rgba(161, 223, 255, 0.15),
-    inset 0 1px 1px 0 rgba(255, 255, 255, 0.25);
-}
-
-/* ── Critical Marker Pulse ── */
-.marker-pulse {
-  animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
-}
-@keyframes pulse-ring {
-  0%   { transform: scale(0.8); box-shadow: 0 0 0 0 rgba(255, 75, 75, 0.7); }
-  70%  { transform: scale(1);   box-shadow: 0 0 0 20px rgba(255, 75, 75, 0); }
-  100% { transform: scale(0.8); box-shadow: 0 0 0 0 rgba(255, 75, 75, 0); }
-}
-
-.pulse-critical {
-  animation: pulse-red 2s infinite;
-}
-@keyframes pulse-red {
-  0%   { box-shadow: 0 0 0 0 rgba(255, 75, 75, 0.45); }
-  70%  { box-shadow: 0 0 0 8px rgba(255, 75, 75, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(255, 75, 75, 0); }
-}
-
-@keyframes spin-slow {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
-}
-.animate-spin-slow { animation: spin-slow 4s linear infinite; }
-
-
-/* ── Typography Utilities ── */
-.font-headline-lg {
-  font-family: 'Inter', sans-serif;
-  font-size: 32px;
-  line-height: 1.2;
-  letter-spacing: -0.03em;
-  font-weight: 900;
-}
-.font-headline-lg-mobile {
-  font-family: 'Inter', sans-serif;
-  font-size: 24px;
-  line-height: 1.2;
-  letter-spacing: -0.02em;
-  font-weight: 900;
-}
-.font-headline-md {
-  font-family: 'Inter', sans-serif;
-  font-size: 24px;
-  line-height: 1.3;
-  font-weight: 700;
-}
-.font-kpi-value {
-  font-family: 'Inter', sans-serif;
-  font-size: 24px;
-  line-height: 1.2;
-  letter-spacing: -0.01em;
-  font-weight: 600;
-}
-.font-label-md {
-  font-family: 'Inter', sans-serif;
-  font-size: 14px;
-  line-height: 1.4;
-  letter-spacing: 0.01em;
-  font-weight: 600;
-}
-.font-label-sm {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 12px;
-  line-height: 1.4;
-  letter-spacing: 0.05em;
-  font-weight: 500;
-}
-.font-body-md {
-  font-family: 'Inter', sans-serif;
-  font-size: 16px;
-  line-height: 1.6;
-  font-weight: 400;
-}
-.font-body-lg {
-  font-family: 'Inter', sans-serif;
-  font-size: 18px;
-  line-height: 1.6;
-  font-weight: 400;
-}
-.font-metadata-sm {
-  font-family: 'Inter', sans-serif;
-  font-size: 12px;
-  line-height: 1.5;
-  letter-spacing: 0.02em;
-  font-weight: 400;
-}
-.font-status-pill {
-  font-family: 'Inter', sans-serif;
-  font-size: 11px;
-  line-height: 1;
-  letter-spacing: 0.05em;
-  font-weight: 600;
-}
-
-/* ── MapLibre Map Container ── */
-.maplibregl-map {
-  width: 100%;
+html,
+body,
+#root {
   height: 100%;
 }
 
-/* ── MapLibre Popup Styling (macOS 26 Liquid Optical Lens) ── */
-.maplibregl-popup-content {
-  background: rgba(12, 16, 20, 0.78) !important;
-  backdrop-filter: blur(24px) saturate(180%) !important;
-  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
-  border-top: 1px solid rgba(255, 255, 255, 0.28) !important;
-  border-left: 1px solid rgba(255, 255, 255, 0.14) !important;
-  border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
-  border-radius: 1.25rem !important;
-  padding: 14px 16px !important;
-  color: #dee3e8 !important;
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif !important;
-  font-size: 12px !important;
-  box-shadow: 
-    0 20px 48px -6px rgba(0, 0, 0, 0.65),
-    inset 0 1px 1px 0 rgba(255, 255, 255, 0.22) !important;
-  min-width: 220px;
-}
-.maplibregl-popup-tip {
-  border-top-color: rgba(12, 16, 20, 0.78) !important;
-}
-.maplibregl-popup-close-button {
-  color: rgba(255, 255, 255, 0.6) !important;
-  font-size: 16px !important;
-  padding: 6px 10px !important;
-}
-.maplibregl-popup-close-button:hover {
-  color: #ffffff !important;
-  background: transparent !important;
+body {
+  margin: 0;
+  background-color: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
+/* Every numeric readout is tabular so columns of figures never jitter as
+   values update on the 60s refetch. */
+.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  letter-spacing: -0.01em;
+}
+
+/* ============================================================================
+   The material — three levels, no more.
+
+   Opacity floors at 0.86 because the default basemap is satellite imagery:
+   the panel must guarantee its own text contrast over both bright desert and
+   dark forest, rather than inheriting whatever happens to be underneath.
+   ========================================================================== */
+
+.glass {
+  background: rgba(252, 253, 254, 0.86);
+  backdrop-filter: blur(32px) saturate(180%);
+  -webkit-backdrop-filter: blur(32px) saturate(180%);
+  border: 1px solid rgba(15, 18, 22, 0.08);
+  box-shadow:
+    0 1px 2px rgba(15, 18, 22, 0.04),
+    0 8px 24px -8px rgba(15, 18, 22, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+}
+
+.glass-panel-l2 {
+  background: rgba(252, 253, 254, 0.88);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  border: 1px solid rgba(15, 18, 22, 0.09);
+  box-shadow:
+    0 1px 2px rgba(15, 18, 22, 0.05),
+    0 16px 48px -12px rgba(15, 18, 22, 0.20),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+}
+
+.glass-popover {
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(15, 18, 22, 0.10);
+  box-shadow:
+    0 2px 4px rgba(15, 18, 22, 0.06),
+    0 20px 56px -16px rgba(15, 18, 22, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 1);
+}
+
+/* A quieter inset surface for nesting inside glass without stacking blurs —
+   stacked backdrop-filters are the main reason the previous build felt muddy. */
+.inset-surface {
+  background: rgba(15, 18, 22, 0.035);
+  border: 1px solid rgba(15, 18, 22, 0.06);
+}
+
+/* ============================================================================
+   Controls
+   ========================================================================== */
+
+.ctl {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: var(--radius-md);
+  color: var(--color-ink-2);
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  background: transparent;
+  border: 1px solid transparent;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease,
+    border-color 150ms ease;
+}
+
+.ctl:hover {
+  background: rgba(15, 18, 22, 0.05);
+  color: var(--color-ink);
+}
+
+.ctl[aria-pressed="true"],
+.ctl[data-active="true"] {
+  background: var(--color-accent-soft);
+  border-color: var(--color-accent-line);
+  color: var(--color-accent-strong);
+  font-weight: 600;
+}
+
+/* Visible focus on every interactive element. The previous build had no focus
+   indicator at all, which made the whole app keyboard-unusable. */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* ============================================================================
+   Scrollbars
+   ========================================================================== */
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(15, 18, 22, 0.20) transparent;
+}
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(15, 18, 22, 0.18);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(15, 18, 22, 0.30);
+  background-clip: content-box;
+}
+
+/* ============================================================================
+   Motion — one arrival, one pulse, both opt-out aware
+   ========================================================================== */
+
+@keyframes glass-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.995);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.arrive {
+  animation: glass-arrive 200ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+@keyframes live-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.live-dot {
+  animation: live-pulse 2.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .arrive,
+  .live-dot {
+    animation: none;
+  }
+}
+
+/* ============================================================================
+   MapLibre
+   ========================================================================== */
+
+.maplibregl-map {
+  width: 100%;
+  height: 100%;
+  font-family: var(--font-sans);
+}
+
+.maplibregl-ctrl-attrib.maplibregl-compact {
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(12px);
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+}
+
+.maplibregl-popup-content {
+  background: rgba(255, 255, 255, 0.94) !important;
+  backdrop-filter: blur(24px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+  border: 1px solid rgba(15, 18, 22, 0.10) !important;
+  border-radius: var(--radius-md) !important;
+  padding: 10px 12px !important;
+  color: var(--color-ink) !important;
+  font-family: var(--font-sans) !important;
+  font-size: 12px !important;
+  box-shadow:
+    0 2px 4px rgba(15, 18, 22, 0.06),
+    0 20px 56px -16px rgba(15, 18, 22, 0.28) !important;
+  min-width: 200px;
+}
+
+.maplibregl-popup-tip {
+  border-top-color: rgba(255, 255, 255, 0.94) !important;
+  border-bottom-color: rgba(255, 255, 255, 0.94) !important;
+}
+
+.maplibregl-popup-close-button {
+  color: var(--color-ink-3) !important;
+  font-size: 15px !important;
+  padding: 4px 8px !important;
+  right: 2px !important;
+  top: 2px !important;
+}
+
+.maplibregl-popup-close-button:hover {
+  color: var(--color-ink) !important;
+  background: rgba(15, 18, 22, 0.05) !important;
+  border-radius: var(--radius-sm) !important;
+}
+
+/* Material Symbols sizing helper — the icon font ships at 24px by default and
+   inherits font-size, so an explicit optical size keeps rails aligned. */
+.material-symbols-outlined {
+  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 20;
+  line-height: 1;
+  user-select: none;
+}
+
+.material-symbols-outlined[data-filled="true"] {
+  font-variation-settings: "FILL" 1, "wght" 500, "GRAD" 0, "opsz" 20;
+}
+
+/* ============================================================================
+   Investigation network markers
+
+   These live on DOM markers created imperatively by MapLibre, so they are
+   styled here with tokens rather than inline in the marker HTML.
+   ========================================================================== */
+
+.map-node {
+  position: relative;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.map-node-badge {
+  width: 22px;
+  height: 22px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1.5px solid currentColor;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 2px 6px rgba(15, 18, 22, 0.30);
+  font-size: 13px;
+}
+
+.map-node-label {
+  position: absolute;
+  top: 26px;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-sm);
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--color-ink);
+  box-shadow: 0 2px 8px rgba(15, 18, 22, 0.18);
+  opacity: 0;
+  transition: opacity 140ms ease;
+  pointer-events: none;
+}
+
+.map-node:hover .map-node-label,
+.map-node:focus-visible .map-node-label {
+  opacity: 1;
+}

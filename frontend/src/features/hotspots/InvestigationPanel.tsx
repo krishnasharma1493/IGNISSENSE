@@ -1,362 +1,374 @@
+import { useState } from 'react';
 import { CLASS_CONFIG, CLASSIFICATION_CLASSES } from '../../types';
 import type { Classification, Hotspot, OsmFeature } from '../../types';
 import { useHotspotHistory } from '../../api/hooks';
+import Panel from '../../components/ui/Panel';
+import { Section } from '../../components/ui/Provenance';
+import { Bar, Field, Metric } from '../../components/ui/Readout';
+import {
+  formatDistance,
+  formatFirmsConfidence,
+  formatLandCover,
+  formatUtc,
+  titleise,
+} from '../../lib/format';
+import { CandidateChip, ClassChip } from '../../components/ui/Chip';
+import FrpTrajectory from './FrpTrajectory';
 
 interface InvestigationPanelProps {
   hotspot: Hotspot;
   classification: Classification | null;
   isLoading: boolean;
+  nearbyOsmFeatures: OsmFeature[];
+  isNearbyOsmLoading: boolean;
+  /** How many nearby features are drawn as linked nodes on the map. */
+  linkedCount: number;
+  onLinkedCountChange: (n: number) => void;
+  onFocusFeature: (coordinates: [number, number], label: string) => void;
   onClose: () => void;
-  nearbyOsmFeatures?: OsmFeature[];
 }
+
+/** Bands for the two independent heuristic axes. PRD §21 and §22. */
+const band = (score: number) => (score >= 0.7 ? 'High' : score >= 0.4 ? 'Medium' : 'Low');
 
 export default function InvestigationPanel({
   hotspot,
   classification,
   isLoading,
+  nearbyOsmFeatures,
+  isNearbyOsmLoading,
+  linkedCount,
+  onLinkedCountChange,
+  onFocusFeature,
   onClose,
-  nearbyOsmFeatures = [],
 }: InvestigationPanelProps) {
-  const cls = classification?.predictedClass || 'other_or_uncertain';
-  const config = CLASS_CONFIG[cls];
-  const confPercent = classification ? Math.round(classification.confidence * 100) : 0;
-  const frpVal = hotspot.frp ? hotspot.frp.toFixed(1) : 'N/A';
-  const brightVal = hotspot.brightness ? Math.round(hotspot.brightness) : 'N/A';
+  const [copied, setCopied] = useState(false);
 
-  // Fetch genuine historical satellite overpasses for this coordinate
   const { data: historyData, isLoading: historyLoading } = useHotspotHistory(hotspot._id);
-  const historicalPasses = historyData?.points || [];
+  const passes = historyData?.points ?? [];
 
-  // Format event code
+  const [lng, lat] = hotspot.location.coordinates;
   const eventId = `HS-${hotspot._id.slice(-6).toUpperCase()}`;
 
-  // Grounded Anomaly & Persistence quantitative labels
-  const anomalyScore = classification?.anomalyScore ?? 0.0;
-  const persistenceScore = classification?.persistenceScore ?? 0.0;
+  const predicted = classification?.predictedClass ?? null;
+  const isOffline = Boolean(classification?.modelVersion?.endsWith('-OFFLINE'));
 
-  const anomalyLabel =
-    anomalyScore >= 0.70 ? 'High' : anomalyScore >= 0.40 ? 'Medium' : 'Low';
+  const nearestFacility =
+    classification?.nearestFacilityId && typeof classification.nearestFacilityId === 'object'
+      ? classification.nearestFacilityId
+      : null;
 
-  const persistenceLabel =
-    persistenceScore >= 0.50 ? 'High' : persistenceScore >= 0.25 ? 'Medium' : 'Low';
+  // The backend substitutes 25 km when a hotspot falls outside OSM tile coverage.
+  // Presenting that as a measured distance would be misleading, so it is called out.
+  const facilityDistance = classification?.facilityDistanceMeters ?? null;
+  const isCoverageSentinel = facilityDistance === 25000 && !nearestFacility;
 
-  const contextLabel =
-    classification?.landCover === 'built_up' || classification?.facilityDistanceMeters !== null
-      ? 'Industrial'
-      : classification?.landCover === 'forest'
-      ? 'Wildland'
-      : 'Agricultural';
-
-  // Compute SVG polyline points from real historical FRP trajectory
-  let svgPoints = '';
-  let maxFrpInHistory = hotspot.frp || 10;
-  if (historicalPasses.length >= 2) {
-    const frpVals = historicalPasses.map((p) => p.frp);
-    maxFrpInHistory = Math.max(...frpVals, 10);
-    svgPoints = historicalPasses
-      .map((p, i) => {
-        const x = (i / (historicalPasses.length - 1)) * 100;
-        const y = 90 - (p.frp / maxFrpInHistory) * 75;
-        return `${x.toFixed(1)},${y.toFixed(1)}`;
-      })
-      .join(' ');
-  }
+  const copyCoordinates = async () => {
+    try {
+      await navigator.clipboard.writeText(`${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1600);
+    } catch {
+      /* clipboard unavailable — the coordinates remain selectable as text */
+    }
+  };
 
   return (
-    <aside className="absolute right-6 top-[80px] bottom-6 w-[420px] max-w-[calc(100vw-3rem)] liquid-glass-contextual rounded-3xl flex flex-col z-40 overflow-hidden shadow-2xl">
-      {/* Drawer Header */}
-      <div className="p-5 border-b border-white/10 flex justify-between items-start sticky top-0 bg-transparent z-10 backdrop-blur-md">
-        <div>
-          <div className="flex items-center gap-2 mb-1.5">
-            <span
-              className="sf-metadata text-[10px] px-2.5 py-0.5 rounded-full border uppercase font-bold"
-              style={{
-                backgroundColor: `${config.color}22`,
-                color: config.color,
-                borderColor: `${config.color}55`,
-              }}
-            >
-              {confPercent >= 70 ? 'AI CANDIDATE' : 'UNCERTAIN SIGNATURE'}
-            </span>
-            <span className="sf-metadata text-[11px] text-on-surface-variant font-mono font-bold">
-              {confPercent}% Confidence
-            </span>
+    <Panel
+      as="aside"
+      level="panel"
+      className="arrive absolute right-4 top-[60px] bottom-4 z-40 flex w-[380px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-xl"
+      aria-label={`Investigation: event ${eventId}`}
+    >
+      {/* ── Anchor ─────────────────────────────────────────────────────────── */}
+      <header className="flex items-start justify-between gap-3 border-b border-hairline px-4 py-3">
+        <div className="min-w-0 flex-1">
+          <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
+            {predicted ? <ClassChip cls={predicted} size="md" /> : null}
+            <CandidateChip />
           </div>
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl liquid-glass-interactive flex items-center justify-center p-1.5 border border-white/20 bg-slate-950/40 flex-shrink-0">
-              <img src="/logo-white.png" alt="IGNISSENSE" className="w-full h-full object-contain filter drop-shadow-[0_0_6px_rgba(56,189,248,0.5)]" />
-            </div>
-            <div>
-              <h2 className="sf-display text-xl font-black text-on-surface tracking-tight font-mono">
-                Event #{eventId}
-              </h2>
-              <p className="sf-headline text-xs mt-0.5 font-bold" style={{ color: config.color }}>
-                {config.label}
-              </p>
-            </div>
-          </div>
+
+          <h2 className="num truncate text-[15px] font-semibold leading-tight text-ink">{eventId}</h2>
+
+          <button
+            type="button"
+            onClick={copyCoordinates}
+            className="ctl -ml-1 mt-1 rounded-md px-1 py-0.5"
+            title="Copy coordinates"
+          >
+            <span className="num text-[11px] text-ink-2">
+              {lat.toFixed(5)}°N, {lng.toFixed(5)}°E
+            </span>
+            <span className="material-symbols-outlined" style={{ fontSize: 13 }} aria-hidden="true">
+              {copied ? 'check' : 'content_copy'}
+            </span>
+            <span className="sr-only">Copy coordinates</span>
+          </button>
         </div>
+
         <button
+          type="button"
           onClick={onClose}
-          className="liquid-btn text-on-surface-variant hover:text-white p-1.5 rounded-full liquid-glass-interactive transition-colors flex items-center justify-center"
-          title="Close Drawer"
+          className="ctl h-7 w-7 shrink-0 rounded-md"
+          aria-label="Close investigation"
         >
-          <span className="material-symbols-outlined text-[18px]">close</span>
+          <span className="material-symbols-outlined" style={{ fontSize: 17 }} aria-hidden="true">
+            close
+          </span>
         </button>
-      </div>
+      </header>
 
-      {/* Drawer Content Scrollable */}
-      <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-5">
-        {isLoading ? (
-          <div className="flex items-center justify-center p-8 gap-2 text-on-surface-variant sf-subhead text-xs">
-            <span className="material-symbols-outlined animate-spin-slow text-primary text-[18px]">sync</span>
-            <span>Running telemetry feature extraction...</span>
+      {/* ── Body ───────────────────────────────────────────────────────────── */}
+      <div className="flex flex-1 flex-col gap-5 overflow-y-auto px-4 py-4">
+        {/* 1. Thermal signal — straight off the FIRMS record */}
+        <Section
+          title="Thermal signal"
+          kind="observed"
+          meta={`${hotspot.instrument} · ${hotspot.satellite}`}
+        >
+          <div className="grid grid-cols-3 gap-2">
+            <Metric
+              label="FRP"
+              value={hotspot.frp?.toFixed(1)}
+              unit="MW"
+              tone="var(--color-cls-industrial-ink)"
+            />
+            <Metric
+              label={hotspot.instrument?.toUpperCase().includes('VIIRS') ? 'Bright Ti4' : 'Brightness'}
+              value={hotspot.brightness ? Math.round(hotspot.brightness) : null}
+              unit="K"
+            />
+            <Metric
+              label={hotspot.instrument?.toUpperCase().includes('VIIRS') ? 'Bright Ti5' : 'Bright T31'}
+              value={hotspot.brightnessTi5 ? Math.round(hotspot.brightnessTi5) : null}
+              unit="K"
+            />
           </div>
-        ) : (
-          <>
-            {/* Summary 3-Box Strip (Calculated from Real Features) */}
-            <div className="grid grid-cols-3 gap-2.5">
-              <div className="liquid-glass-interactive p-3 rounded-2xl flex flex-col items-center justify-center text-center">
-                <span className="material-symbols-outlined text-industrial-fire mb-1 text-[18px]">
-                  warning
-                </span>
-                <span className="sf-metadata text-[10px] text-on-surface-variant block uppercase font-bold">Anomaly</span>
-                <span className="sf-headline text-xs text-on-surface font-mono font-bold mt-0.5">
-                  {anomalyLabel} ({anomalyScore.toFixed(2)})
+
+          <dl className="divide-y divide-hairline">
+            <Field label="Acquired" value={formatUtc(hotspot.detectedAt)} numeric />
+            <Field
+              label="Overpass"
+              value={hotspot.dayNight === 'D' ? 'Daytime' : hotspot.dayNight === 'N' ? 'Night' : null}
+            />
+            <Field label="FIRMS confidence" value={formatFirmsConfidence(hotspot.confidence)} />
+            <Field label="Scan / track" value={
+              hotspot.scan !== null && hotspot.track !== null
+                ? `${hotspot.scan} × ${hotspot.track}`
+                : null
+            } numeric />
+            <Field label="Collection" value={hotspot.version} numeric />
+            <Field label="Ingested" value={formatUtc(hotspot.ingestedAt)} numeric />
+          </dl>
+        </Section>
+
+        {/* 2. Model output — a prediction, labelled as such */}
+        <Section
+          title="Classification"
+          kind="model"
+          meta={classification?.modelVersion ?? undefined}
+        >
+          {isLoading ? (
+            <p className="text-[11px] text-ink-3">Loading classification…</p>
+          ) : !classification ? (
+            <p className="inset-surface rounded-md px-3 py-2.5 text-[11px] text-ink-2">
+              This detection has not been classified yet. The pipeline classifies newly ingested
+              hotspots in batches, so a very recent detection may not have a result.
+            </p>
+          ) : (
+            <>
+              {isOffline ? (
+                <p className="flex items-start gap-1.5 rounded-md border border-[rgba(138,97,0,0.26)] bg-warn-soft px-2.5 py-2 text-[11px] leading-relaxed text-warn">
+                  <span className="material-symbols-outlined mt-px shrink-0" style={{ fontSize: 13 }} aria-hidden="true">
+                    warning
+                  </span>
+                  <span>
+                    The inference service was unreachable. This is the pipeline&rsquo;s fallback
+                    result, not a model prediction — treat the class and probabilities as unset.
+                  </span>
+                </p>
+              ) : null}
+
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="text-[11px] text-ink-3">Predicted class confidence</span>
+                <span className="num text-[15px] font-semibold text-ink">
+                  {Math.round(classification.confidence * 100)}%
                 </span>
               </div>
-              <div className="liquid-glass-interactive p-3 rounded-2xl flex flex-col items-center justify-center text-center">
-                <span className="material-symbols-outlined text-tertiary mb-1 text-[18px]">
-                  timelapse
-                </span>
-                <span className="sf-metadata text-[10px] text-on-surface-variant block uppercase font-bold">Persistence</span>
-                <span className="sf-headline text-xs text-on-surface font-mono font-bold mt-0.5">
-                  {persistenceLabel} ({persistenceScore.toFixed(2)})
-                </span>
+
+              <div className="flex flex-col gap-2">
+                {CLASSIFICATION_CLASSES.map((c) => (
+                  <Bar
+                    key={c}
+                    label={CLASS_CONFIG[c].label}
+                    value={classification.classProbabilities?.[c] ?? 0}
+                    color={CLASS_CONFIG[c].ink}
+                    emphasis={c === classification.predictedClass}
+                  />
+                ))}
               </div>
-              <div className="liquid-glass-interactive p-3 rounded-2xl flex flex-col items-center justify-center text-center">
-                <span className="material-symbols-outlined text-secondary mb-1 text-[18px]">
-                  factory
-                </span>
-                <span className="sf-metadata text-[10px] text-on-surface-variant block uppercase font-bold">Context</span>
-                <span className="sf-headline text-xs text-on-surface font-bold mt-0.5">{contextLabel}</span>
+            </>
+          )}
+        </Section>
+
+        {/* 3. Two independent axes — PRD §23 forbids collapsing these into one */}
+        <Section title="Persistence &amp; anomaly" kind="heuristic">
+          <p className="text-[11px] leading-relaxed text-ink-3">
+            Computed from detection history, not by the classifier. These are separate properties:
+            a source can be persistent and unremarkable, or new and highly anomalous.
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <Metric
+              label="Persistence"
+              value={classification ? classification.persistenceScore.toFixed(2) : null}
+              band={classification ? band(classification.persistenceScore) : undefined}
+            />
+            <Metric
+              label="Anomaly"
+              value={classification ? classification.anomalyScore.toFixed(2) : null}
+              band={classification ? band(classification.anomalyScore) : undefined}
+            />
+          </div>
+        </Section>
+
+        {/* 4. Spatial context */}
+        <Section
+          title="Spatial context"
+          kind="context"
+          meta={isNearbyOsmLoading ? 'querying…' : `${nearbyOsmFeatures.length} within 20 km`}
+        >
+          <dl className="divide-y divide-hairline">
+            <Field
+              label="Nearest facility"
+              value={nearestFacility?.name ?? (nearbyOsmFeatures[0]?.name || null)}
+            />
+            <Field
+              label="Facility type"
+              value={
+                nearestFacility?.facilityType
+                  ? titleise(nearestFacility.facilityType)
+                  : nearbyOsmFeatures[0]
+                  ? titleise(nearbyOsmFeatures[0].featureSubcategory || nearbyOsmFeatures[0].featureCategory)
+                  : null
+              }
+            />
+            <Field
+              label="Distance"
+              value={
+                isCoverageSentinel
+                  ? null
+                  : formatDistance(facilityDistance ?? nearbyOsmFeatures[0]?.distance_m)
+              }
+              numeric
+            />
+            <Field label="Land cover" value={formatLandCover(classification?.landCover)} />
+          </dl>
+
+          {isCoverageSentinel ? (
+            <p className="inset-surface rounded-md px-2.5 py-2 text-[11px] leading-relaxed text-ink-2">
+              No OpenStreetMap coverage has been extracted for this tile yet, so facility distance is
+              unmeasured. The classifier received a 25 km placeholder for this detection.
+            </p>
+          ) : null}
+
+          {/* Investigation network control */}
+          {nearbyOsmFeatures.length > 0 ? (
+            <>
+              <div className="flex items-center justify-between gap-2 pt-1">
+                <label htmlFor="linked-count" className="text-[11px] text-ink-3">
+                  Linked on map
+                </label>
+                <select
+                  id="linked-count"
+                  value={linkedCount}
+                  onChange={(e) => onLinkedCountChange(Number(e.target.value))}
+                  className="num inset-surface cursor-pointer rounded-md px-1.5 py-1 text-[11px] text-ink"
+                >
+                  {[3, 6, 10, 15].map((n) => (
+                    <option key={n} value={n}>
+                      {n} nearest
+                    </option>
+                  ))}
+                </select>
               </div>
-            </div>
 
-            {/* 1. Model Classification Probabilities */}
-            <section className="liquid-glass-interactive p-4 rounded-2xl">
-              <div className="flex justify-between items-center mb-3 pb-1 border-b border-white/10">
-                <h3 className="sf-metadata text-[11px] uppercase font-bold text-slate-300">
-                  1. Model Classification
-                </h3>
-                <span className="sf-metadata text-primary font-mono text-[10px] font-bold">
-                  {classification?.modelVersion || 'XGB-PROD'}
-                </span>
-              </div>
-
-              <div className="space-y-2.5">
-                {CLASSIFICATION_CLASSES.map((c) => {
-                  const prob = classification?.classProbabilities?.[c] || 0;
-                  const cConfig = CLASS_CONFIG[c];
-                  const pct = Math.round(prob * 100);
-                  return (
-                    <div key={c}>
-                      <div className="flex justify-between sf-subhead text-xs mb-1">
-                        <span className="text-on-surface text-[11px]">{cConfig.label}</span>
-                        <span style={{ color: cConfig.color }} className="font-bold font-mono text-[11px]">
-                          {pct}%
-                        </span>
-                      </div>
-                      <div className="w-full bg-white/5 rounded-full h-1.5 overflow-hidden">
-                        <div
-                          className="h-1.5 rounded-full transition-all duration-500"
-                          style={{
-                            width: `${pct}%`,
-                            backgroundColor: cConfig.color,
-                          }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-
-            {/* 2. Real Thermal Signal Telemetry */}
-            <section className="liquid-glass-interactive p-4 rounded-2xl">
-              <h3 className="sf-metadata text-[11px] uppercase font-bold text-slate-300 mb-3 pb-1 border-b border-white/10">
-                2. Thermal Signal (NASA FIRMS)
-              </h3>
-              <div className="grid grid-cols-2 gap-2.5">
-                <div className="bg-black/30 p-3 rounded-xl border border-white/5">
-                  <span className="sf-metadata text-[10px] text-on-surface-variant block mb-1 uppercase font-bold">
-                    Observed FRP
-                  </span>
-                  <span className="sf-display text-lg text-on-surface font-mono font-bold text-red-400">
-                    {frpVal} MW
-                  </span>
-                </div>
-                <div className="bg-black/30 p-3 rounded-xl border border-white/5">
-                  <span className="sf-metadata text-[10px] text-on-surface-variant block mb-1 uppercase font-bold">
-                    Brightness (K)
-                  </span>
-                  <span className="sf-display text-lg text-on-surface font-mono font-bold">
-                    {brightVal} K
-                  </span>
-                </div>
-                <div className="col-span-2 bg-black/30 p-3 rounded-xl border border-white/5 flex flex-col gap-1">
-                  <div className="flex justify-between items-center sf-subhead text-xs">
-                    <span className="text-on-surface-variant">Sensor Instrument</span>
-                    <span className="text-on-surface font-bold">
-                      {hotspot.instrument} ({hotspot.satellite})
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center text-[10.5px] text-on-surface-variant font-mono mt-0.5">
-                    <span>Acquisition: {new Date(hotspot.detectedAt).toUTCString().slice(0, 22)} UTC</span>
-                    <span>{hotspot.dayNight === 'D' ? '☀️ Day Pass' : '🌙 Night Pass'}</span>
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            {/* 3. Spatial Context & 4. Grounded Evidence */}
-            <section className="space-y-4">
-              <div className="liquid-glass-interactive p-4 rounded-2xl">
-                <div className="flex items-center justify-between mb-3 pb-1 border-b border-white/10">
-                  <h3 className="sf-metadata text-[11px] uppercase font-bold text-slate-300">
-                    3. Spatial Infrastructure Context (OSM)
-                  </h3>
-                  <span className="text-[10px] font-mono text-cyan-400 font-bold">
-                    {nearbyOsmFeatures.length > 0 ? `${nearbyOsmFeatures.length} Mapped within 20km` : 'OSM Layer'}
-                  </span>
-                </div>
-
-                <div className="flex items-start gap-2.5 mb-3">
-                  <span className="material-symbols-outlined text-secondary mt-0.5 text-[18px]">
-                    location_on
-                  </span>
-                  <div>
-                    <p className="sf-headline text-xs text-on-surface font-bold">
-                      {nearbyOsmFeatures.length > 0
-                        ? nearbyOsmFeatures[0].name
-                        : classification?.nearestFacilityId
-                        ? typeof classification.nearestFacilityId === 'object'
-                          ? (classification.nearestFacilityId as any).name
-                          : 'OpenStreetMap Industrial Facility'
-                        : 'No Industrial Infrastructure Within 25km'}
-                    </p>
-                    <p className="sf-metadata text-[10.5px] text-on-surface-variant mt-0.5 font-mono">
-                      {nearbyOsmFeatures.length > 0 && nearbyOsmFeatures[0].distance_m !== undefined
-                        ? `Closest: ${Math.round(nearbyOsmFeatures[0].distance_m)}m from hotspot centroid (${nearbyOsmFeatures[0].featureCategory})`
-                        : classification?.facilityDistanceMeters !== null && classification?.facilityDistanceMeters !== undefined
-                        ? `Distance: ${classification.facilityDistanceMeters}m from centroid`
-                        : `Coordinates: ${hotspot.location.coordinates[1].toFixed(4)}° N, ${hotspot.location.coordinates[0].toFixed(4)}° E`}
-                    </p>
-                  </div>
-                </div>
-
-                {nearbyOsmFeatures.length > 1 && (
-                  <div className="mt-3 pt-2.5 border-t border-white/10 flex flex-col gap-1.5">
-                    <span className="text-[10px] uppercase font-mono text-slate-400 font-bold">
-                      Other Nearby Mapped Infrastructure:
-                    </span>
-                    <div className="flex flex-col gap-1 max-h-32 overflow-y-auto pr-1">
-                      {nearbyOsmFeatures.slice(1, 6).map((feat) => (
-                        <div
-                          key={feat.sourceId || feat._id}
-                          className="flex items-center justify-between p-1.5 rounded bg-white/5 border border-white/10 text-xs"
-                        >
-                          <div className="flex flex-col min-w-0 pr-2">
-                            <span className="text-[11px] font-semibold text-white truncate">{feat.name}</span>
-                            <span className="text-[9px] text-cyan-300 font-mono uppercase">
-                              {feat.featureCategory} • {feat.featureSubcategory.replace(/_/g, ' ')}
-                            </span>
-                          </div>
-                          <span className="text-[10px] font-mono font-bold text-amber-400 whitespace-nowrap">
-                            {feat.distance_m ? (feat.distance_m > 1000 ? `${(feat.distance_m / 1000).toFixed(1)}km` : `${Math.round(feat.distance_m)}m`) : ''}
+              <ul className="flex flex-col gap-1">
+                {nearbyOsmFeatures.slice(0, linkedCount).map((f, i) => (
+                  <li key={f.sourceId || f._id}>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onFocusFeature([f.longitude, f.latitude], `${f.name} · ${titleise(f.featureCategory)}`)
+                      }
+                      className="ctl w-full justify-between gap-2 rounded-md px-2 py-1.5 text-left"
+                    >
+                      <span className="flex min-w-0 items-center gap-2">
+                        <span className="num w-4 shrink-0 text-[10px] text-ink-4">{i + 1}</span>
+                        <span className="min-w-0">
+                          <span className="block truncate text-[12px] font-medium text-ink">
+                            {f.name || 'Unnamed feature'}
                           </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="liquid-glass-interactive p-4 rounded-2xl">
-                <h3 className="sf-metadata text-[11px] uppercase font-bold text-slate-300 mb-3 pb-1 border-b border-white/10">
-                  4. Grounded Evidence Flags
-                </h3>
-                <ul className="space-y-2 sf-subhead text-xs text-on-surface">
-                  {classification && classification.explanation && classification.explanation.length > 0 ? (
-                    classification.explanation.map((e, i) => (
-                      <li key={i} className="flex items-start gap-2">
-                        <span className="material-symbols-outlined text-primary text-[15px] mt-0.5 flex-shrink-0">
-                          check_circle
+                          <span className="block truncate text-[10px] text-ink-3">
+                            {titleise(f.featureCategory)}
+                            {f.featureSubcategory ? ` · ${titleise(f.featureSubcategory)}` : ''}
+                          </span>
                         </span>
-                        <span className="text-[11.5px] leading-relaxed">{e}</span>
-                      </li>
-                    ))
-                  ) : (
-                    <li className="text-on-surface-variant text-xs">
-                      No feature explanation available for this observation
-                    </li>
-                  )}
-                </ul>
-              </div>
-            </section>
+                      </span>
+                      <span className="num shrink-0 text-[11px] text-ink-2">
+                        {formatDistance(f.distance_m) ?? ''}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : !isNearbyOsmLoading ? (
+            <p className="inset-surface rounded-md px-2.5 py-2 text-[11px] text-ink-2">
+              No mapped infrastructure within 20 km of this detection.
+            </p>
+          ) : null}
+        </Section>
 
-            {/* 5. Real FRP Timeline Sparkline */}
-            <section className="liquid-glass-interactive p-4 rounded-2xl">
-              <div className="flex justify-between items-center mb-3 pb-1 border-b border-white/10">
-                <h3 className="sf-metadata text-[11px] uppercase font-bold text-slate-300">
-                  5. Historical FRP Trajectory
-                </h3>
-                <span className="sf-metadata text-primary font-mono text-[10.5px] font-bold">
-                  {historicalPasses.length} Overpasses
-                </span>
-              </div>
+        {/* 5. Detection history */}
+        <Section
+          title="Detection history"
+          kind="observed"
+          meta={historyLoading ? 'loading…' : `${passes.length} overpasses`}
+        >
+          {historyLoading ? (
+            <div className="inset-surface h-[88px] rounded-md" aria-hidden="true" />
+          ) : (
+            <FrpTrajectory points={passes} />
+          )}
+          <p className="text-[11px] leading-relaxed text-ink-3">
+            Every FIRMS detection recorded within 1.5 km of this point, across all sensors.
+          </p>
+        </Section>
 
-              {historyLoading ? (
-                <div className="h-24 rounded-xl bg-black/30 flex items-center justify-center text-xs text-on-surface-variant sf-subhead">
-                  Loading historical passes...
-                </div>
-              ) : historicalPasses.length < 2 ? (
-                <div className="h-24 rounded-xl bg-black/30 flex flex-col items-center justify-center p-3 text-center">
-                  <span className="material-symbols-outlined text-tertiary mb-1 text-[20px]">history_toggle_off</span>
-                  <span className="sf-subhead text-xs text-on-surface-variant font-semibold">
-                    Single isolated overpass detection
-                  </span>
-                  <span className="sf-metadata text-[10px] text-on-surface-variant/70 mt-0.5">
-                    FRP: {frpVal} MW at this coordinate
-                  </span>
-                </div>
-              ) : (
-                <div className="h-28 rounded-xl bg-black/30 relative overflow-hidden flex items-end p-2.5 pt-6 border border-white/5">
-                  <div className="absolute bottom-4 left-0 w-full border-b border-dashed border-white/10 z-0" />
-                  <svg
-                    className="w-full h-full text-industrial-fire absolute inset-0"
-                    preserveAspectRatio="none"
-                    viewBox="0 0 100 100"
+        {/* 6. Evidence */}
+        <Section title="Classification evidence" kind="model">
+          {classification?.explanation?.length ? (
+            <ul className="flex flex-col gap-1.5">
+              {classification.explanation.map((line, i) => (
+                <li key={i} className="flex items-start gap-2 text-[12px] leading-relaxed text-ink-2">
+                  <span
+                    className="material-symbols-outlined mt-px shrink-0 text-ink-4"
+                    style={{ fontSize: 13 }}
+                    aria-hidden="true"
                   >
-                    <polyline
-                      fill="none"
-                      points={svgPoints}
-                      stroke="currentColor"
-                      strokeWidth="2.5"
-                    />
-                  </svg>
-                  <span className="sf-metadata text-on-surface-variant absolute top-2 left-2 text-[9.5px]">
-                    Earliest: {historicalPasses[0]?.frp.toFixed(1)} MW
+                    chevron_right
                   </span>
-                  <span className="sf-metadata text-industrial-fire absolute top-2 right-2 font-bold font-mono text-[9.5px]">
-                    Peak: {maxFrpInHistory.toFixed(1)} MW
-                  </span>
-                </div>
-              )}
-            </section>
-          </>
-        )}
+                  <span>{line}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-[11px] text-ink-3">
+              No feature-level explanation was recorded for this classification.
+            </p>
+          )}
+        </Section>
       </div>
-    </aside>
+    </Panel>
   );
 }
