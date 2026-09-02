@@ -17,6 +17,16 @@ import joblib
 import numpy as np
 import pandas as pd
 
+# Features the backend must have resolved before we run inference. A null (or
+# absent) value here means the backend could not measure/derive the feature —
+# coercing it to a placeholder would silently reintroduce the substitution bug
+# the backend was changed to remove, so we reject the request instead.
+REQUIRED = [
+    "frp", "brightness", "brightness_ti5", "temp_delta_ti4_ti5", "confidence",
+    "is_night", "facility_distance_m", "facility_type_encoded",
+    "landcover_encoded", "nearby_cluster_count_3km",
+]
+
 logging.basicConfig(
     level=logging.INFO,
     format='[%(asctime)s] [%(levelname)s] %(message)s',
@@ -103,12 +113,43 @@ class InferenceHandler(BaseHTTPRequestHandler):
                 self.wfile.write(b'{"error": "Expected features object or records array"}')
                 return
 
+            # Validate completeness of every record in the (now-normalised) batch
+            # before any of it reaches pandas/XGBoost. A record is incomplete if a
+            # required feature is missing entirely or explicitly null.
+            offending = []
+            for idx, item in enumerate(raw_items):
+                if not isinstance(item, dict):
+                    continue
+                missing = [k for k in REQUIRED if item.get(k) is None]
+                if missing:
+                    offending.append((idx, missing))
+
+            if offending:
+                detail = "; ".join(
+                    f"record {idx}: {', '.join(missing)}" for idx, missing in offending
+                )
+                self._set_headers(422)
+                self.wfile.write(json.dumps({
+                    'success': False,
+                    'error': {
+                        'code': 'INCOMPLETE_FEATURES',
+                        'message': f"Required features unresolved: {detail}",
+                    },
+                }).encode('utf-8'))
+                return
+
             try:
-                # Prepare DataFrame strictly conforming to canonical feature columns
+                # Prepare DataFrame strictly conforming to canonical feature columns.
+                # REQUIRED features are already guaranteed non-null by the check above,
+                # so this fill only ever applies to OPTIONAL (historical) features that
+                # are legitimately absent/null (e.g. a first-ever detection at a
+                # coordinate has no history) — it does not mask the validation.
                 df = pd.DataFrame(raw_items)
                 for col in feature_names:
                     if col not in df.columns:
                         df[col] = 0.0
+                    else:
+                        df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0.0)
 
                 df = df[feature_names]
 
