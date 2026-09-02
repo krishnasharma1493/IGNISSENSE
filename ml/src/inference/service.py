@@ -119,6 +119,7 @@ class InferenceHandler(BaseHTTPRequestHandler):
             offending = []
             for idx, item in enumerate(raw_items):
                 if not isinstance(item, dict):
+                    offending.append((idx, ['<entry is not an object>']))
                     continue
                 missing = [k for k in REQUIRED if item.get(k) is None]
                 if missing:
@@ -148,6 +149,18 @@ class InferenceHandler(BaseHTTPRequestHandler):
                 for col in feature_names:
                     if col not in df.columns:
                         df[col] = 0.0
+                    elif col == 'days_since_last_detection':
+                        # Deliberately NOT filled with 0.0. Zero would mean "last
+                        # detected today" — the opposite of "never detected before",
+                        # which is what a null actually means for a virgin
+                        # coordinate. Substituting a plausible-but-wrong value here
+                        # is exactly the bug this task exists to remove, so we pass
+                        # NaN through and let XGBoost's native missing-value
+                        # handling decide the split direction. Caveat: the current
+                        # model was trained on a synthetic dataset that contains no
+                        # NaNs, so that default split direction is untested —
+                        # revisit when the model is retrained on real data.
+                        df[col] = pd.to_numeric(df[col], errors='coerce')
                     else:
                         df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0.0)
 
