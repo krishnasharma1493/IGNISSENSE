@@ -1,7 +1,6 @@
 import { IHotspot, Hotspot } from '../hotspots/hotspot.model';
 import { enrichHotspot, EnrichmentResult } from '../osm/enrichment.service';
 import { haversineMeters } from '../osm/enrichment.service';
-import { FACILITY_TYPE_ENCODING } from '../osm/taxonomy';
 import { IFacility } from '../facilities/facility.model';
 import { FACILITY_TYPE_MAP, LANDCOVER_MAP } from './featureContract';
 

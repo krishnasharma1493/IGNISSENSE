@@ -104,42 +104,6 @@ export const SUBCATEGORIES: Record<FeatureCategory, readonly string[]> = {
   ],
 };
 
-// ─── Facility Type Encoding (ML Feature) ─────────────────────────────────────
-// Maps the facility-relevant subcategories to numeric encodings
-// aligned with the existing ML feature schema (feature_schema.json).
-// This extends the original FACILITY_TYPE_MAP to cover India-wide types.
-
-export const FACILITY_TYPE_ENCODING: Record<string, number> = {
-  none: 0,
-  refinery: 1,
-  power_plant: 2,
-  chemical_plant: 3,
-  brick_kiln: 4,
-  steel_plant: 5,
-  quarry_mining: 6,
-  general_industrial: 7,
-  warehouse: 8,
-  cement_plant: 9,
-  oil_gas_facility: 10,
-  petroleum_well: 11,
-  thermal_power_station: 2, // maps to power_plant encoding
-  substation: 12,
-  mine: 6,                  // maps to quarry_mining encoding
-  coal_mine: 6,
-  opencast_mine: 6,
-  factory: 7,               // maps to general_industrial
-  manufacturing: 7,
-  works: 7,
-  industrial_area: 7,
-  lpg_plant: 10,
-  pipeline_station: 10,
-  oil_terminal: 10,
-  gas_flare: 10,
-  solar_farm: 13,
-  wind_farm: 13,
-  hydroelectric: 2,
-};
-
 // ─── Land Cover Encoding (ML Feature) ────────────────────────────────────────
 // Maps feature categories to land cover encodings aligned with feature_schema.json.
 
