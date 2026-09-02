@@ -32,6 +32,14 @@ export const config = {
   // ML inference
   modelServiceUrl: process.env.MODEL_SERVICE_URL || 'http://localhost:8000',
 
+  // Nominatim (OSM reverse geocoding)
+  nominatim: {
+    baseUrl: process.env.NOMINATIM_URL || 'https://nominatim.openstreetmap.org',
+    // The OSM usage policy requires a real identifying User-Agent.
+    userAgent: process.env.NOMINATIM_USER_AGENT || 'IGNISSENSE/1.0 (SIH 2026 26162)',
+    minIntervalMs: 1100, // policy: max 1 request/second
+  },
+
   // Delhi NCR bounding box (west, south, east, north)
   delhiNcr: {
     bbox: {
