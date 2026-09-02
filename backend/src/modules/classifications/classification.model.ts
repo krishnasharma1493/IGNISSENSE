@@ -20,9 +20,9 @@ export type ClassificationClass = typeof CLASSIFICATION_CLASSES[number];
 
 export interface IClassification extends Document {
   hotspotId: Types.ObjectId;
-  predictedClass: ClassificationClass;
-  confidence: number;
-  classProbabilities: Record<ClassificationClass, number>;
+  predictedClass: ClassificationClass | null;
+  confidence: number | null;
+  classProbabilities: Record<ClassificationClass, number> | null;
   persistenceScore: number;
   anomalyScore: number;
   nearestFacilityId: Types.ObjectId | null;
@@ -30,6 +30,14 @@ export interface IClassification extends Document {
   landCover: string; // 'forest', 'cropland', 'built_up', 'bare', 'water', 'other'
   explanation: string[];
   modelVersion: string;
+  pipelineStatus: 'classified' | 'unclassified_insufficient_features';
+  featureVersion: string;
+  predictedAt: Date;
+  featureCompleteness: {
+    required: string[];
+    unresolved: string[];
+    completenessRatio: number;
+  };
   createdAt: Date;
 }
 
@@ -42,18 +50,21 @@ const classificationSchema = new Schema<IClassification>(
     },
     predictedClass: {
       type: String,
-      required: true,
+      required: false,
       enum: CLASSIFICATION_CLASSES,
+      default: null,
     },
     confidence: {
       type: Number,
-      required: true,
+      required: false,
       min: 0,
       max: 1,
+      default: null,
     },
     classProbabilities: {
       type: Schema.Types.Mixed,
-      required: true,
+      required: false,
+      default: null,
     },
     persistenceScore: {
       type: Number,
@@ -88,6 +99,19 @@ const classificationSchema = new Schema<IClassification>(
     modelVersion: {
       type: String,
       required: true,
+    },
+    pipelineStatus: {
+      type: String,
+      required: true,
+      enum: ['classified', 'unclassified_insufficient_features'],
+      default: 'classified',
+    },
+    featureVersion: { type: String, required: true },
+    predictedAt: { type: Date, required: true, default: Date.now },
+    featureCompleteness: {
+      required: { type: [String], default: [] },
+      unresolved: { type: [String], default: [] },
+      completenessRatio: { type: Number, default: 1 },
     },
   },
   {

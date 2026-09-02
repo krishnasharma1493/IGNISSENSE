@@ -1,7 +1,8 @@
 import { Hotspot, IHotspot } from '../hotspots/hotspot.model';
 import { Classification, IClassification, ClassificationClass } from './classification.model';
 import { Alert } from '../alerts/alert.model';
-import { extractFeaturesForHotspot, ExtractedFeatures } from './feature.extractor';
+import { extractFeaturesForHotspot, ExtractedFeatures, toCanonicalFeatureRecord } from './feature.extractor';
+import { REQUIRED_FEATURES, FEATURE_VERSION } from './featureContract';
 
 
 /**
@@ -77,14 +78,17 @@ function calculateAnomalyScore(
 
 import axios from 'axios';
 import { config } from '../../config';
-import { toCanonicalFeatureRecord } from './feature.extractor';
 
 /**
  * Grounded ML Inference Pipeline
  * Calls the trained XGBoost model microservice directly with the canonical feature vector.
+ *
+ * Takes the already-computed canonical values rather than recomputing them from
+ * ExtractedFeatures — the caller (classifyHotspot) gates on feature completeness
+ * before this is invoked, so it must have already produced the canonical record.
  */
 async function runModelInference(
-  features: ExtractedFeatures
+  canonicalFeatures: Record<string, number>
 ): Promise<{
   predictedClass: ClassificationClass;
   confidence: number;
@@ -92,8 +96,6 @@ async function runModelInference(
   modelVersion: string;
   isModelLive: boolean;
 }> {
-  const canonicalFeatures = toCanonicalFeatureRecord(features).values;
-
   try {
     const response = await axios.post(
       `${config.modelServiceUrl}/predict`,
@@ -141,7 +143,7 @@ async function runModelInference(
  */
 function generateEvidenceExplanation(
   features: ExtractedFeatures,
-  topClass: ClassificationClass,
+  topClass: ClassificationClass | null,
   persistenceScore: number,
   anomalyScore: number
 ): string[] {
@@ -198,8 +200,41 @@ export async function classifyHotspot(hotspot: IHotspot): Promise<IClassificatio
   const persistenceScore = calculatePersistenceScore(features);
   const anomalyScore = calculateAnomalyScore(features, persistenceScore);
 
-  // 3. Run ML Inference
-  const inference = await runModelInference(features);
+  // 3. Gate on feature completeness before spending an inference call.
+  const canonical = toCanonicalFeatureRecord(features);
+  const ratio =
+    (REQUIRED_FEATURES.length - canonical.unresolved.length) / REQUIRED_FEATURES.length;
+
+  const completeness = {
+    required: [...REQUIRED_FEATURES],
+    unresolved: canonical.unresolved,
+    completenessRatio: Number(ratio.toFixed(3)),
+  };
+
+  let inference: {
+    predictedClass: ClassificationClass | null;
+    confidence: number | null;
+    classProbabilities: Record<ClassificationClass, number> | null;
+    modelVersion: string;
+    isModelLive: boolean;
+  };
+  let pipelineStatus: 'classified' | 'unclassified_insufficient_features';
+
+  if (canonical.unresolved.length > 0) {
+    // No OSM coverage here. Saying "uncertain" would imply the model looked and
+    // was unsure; it never ran.
+    pipelineStatus = 'unclassified_insufficient_features';
+    inference = {
+      predictedClass: null,
+      confidence: null,
+      classProbabilities: null,
+      modelVersion: CURRENT_MODEL_METADATA.version,
+      isModelLive: false,
+    };
+  } else {
+    pipelineStatus = 'classified';
+    inference = await runModelInference(canonical.values as Record<string, number>);
+  }
 
   // 4. Generate grounded explainability evidence
   const explanation = generateEvidenceExplanation(
@@ -214,7 +249,7 @@ export async function classifyHotspot(hotspot: IHotspot): Promise<IClassificatio
     { hotspotId: hotspot._id },
     {
       hotspotId: hotspot._id,
-      predictedClass: inference.predictedClass,
+      predictedClass: pipelineStatus === 'classified' ? inference.predictedClass : null,
       confidence: inference.confidence,
       classProbabilities: inference.classProbabilities,
       persistenceScore,
@@ -224,19 +259,26 @@ export async function classifyHotspot(hotspot: IHotspot): Promise<IClassificatio
       landCover: features.landCover,
       explanation,
       modelVersion: inference.modelVersion,
+      pipelineStatus,
+      featureVersion: FEATURE_VERSION,
+      predictedAt: new Date(),
+      featureCompleteness: completeness,
     },
     { upsert: true, returnDocument: 'after' }
   );
 
 
   // 6. Deterministic Alert Generation: Anomaly Score >= 0.65 AND within 1.5 km of OSM Industrial Facility
+  // An unclassified detection never raises an alert — there is no classified signature to assert.
   if (
+    pipelineStatus === 'classified' &&
     anomalyScore >= 0.65 &&
     features.facilityDistanceMeters !== null &&
     features.facilityDistanceMeters <= 1500
   ) {
     const severity = anomalyScore >= 0.80 ? 'critical' : anomalyScore >= 0.65 ? 'high' : 'medium';
-    const reason = `[AI CANDIDATE] High anomaly (${anomalyScore.toFixed(2)}) ${inference.predictedClass.replace(/_/g, ' ')} signature within ${features.facilityDistanceMeters}m of ${features.nearestFacility?.name || 'industrial facility'}. FRP: ${features.frp.toFixed(1)} MW.`;
+    const predictedClassLabel = (inference.predictedClass ?? 'other_or_uncertain').replace(/_/g, ' ');
+    const reason = `[AI CANDIDATE] High anomaly (${anomalyScore.toFixed(2)}) ${predictedClassLabel} signature within ${features.facilityDistanceMeters}m of ${features.nearestFacility?.name || 'industrial facility'}. FRP: ${features.frp.toFixed(1)} MW.`;
 
     await Alert.findOneAndUpdate(
       { hotspotId: hotspot._id },

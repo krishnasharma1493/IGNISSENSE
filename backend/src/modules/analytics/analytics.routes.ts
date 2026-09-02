@@ -21,11 +21,19 @@ analyticsRoutes.get('/summary', async (req: Request, res: Response) => {
 
     const totalHotspots = await Hotspot.countDocuments(hotspotFilter);
 
-    // Count classifications by predicted class
+    // Count classifications by predicted class — only rows where inference actually ran.
     const classCounts: Record<string, number> = {};
     for (const cls of CLASSIFICATION_CLASSES) {
-      classCounts[cls] = await Classification.countDocuments({ predictedClass: cls });
+      classCounts[cls] = await Classification.countDocuments({
+        pipelineStatus: 'classified',
+        predictedClass: cls,
+      });
     }
+
+    // Detections gated out before inference for lack of resolvable features.
+    const unclassified = await Classification.countDocuments({
+      pipelineStatus: 'unclassified_insufficient_features',
+    });
 
     // Persistent sources (persistence >= 0.50)
     const persistentSources = await Classification.countDocuments({
@@ -64,6 +72,7 @@ analyticsRoutes.get('/summary', async (req: Request, res: Response) => {
         },
         persistentSources,
         anomalousSources,
+        unclassified,
         openAlerts,
         regions: {
           delhi_ncr: delhiNcrHotspots,
