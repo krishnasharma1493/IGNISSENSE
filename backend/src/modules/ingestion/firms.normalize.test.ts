@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { parse } from 'csv-parse/sync';
 import { normalizeFirmsRecord } from './firms.client';
 
 const viirs = {
@@ -47,5 +48,46 @@ describe('normalizeFirmsRecord', () => {
   it('records ingestedAt separately from detectedAt', () => {
     const r = normalizeFirmsRecord(viirs as any)!;
     expect(r.ingestedAt.getTime()).toBeGreaterThan(r.detectedAt.getTime());
+  });
+
+  it('round-trips every original CSV column into rawSource, verbatim, from a real csv-parse row', () => {
+    const header = 'latitude,longitude,bright_ti4,scan,track,acq_date,acq_time,satellite,instrument,confidence,version,bright_ti5,frp,daynight';
+    const row = '28.6139,77.2090,340.5,0.5,0.45,2026-09-01,0830,N,VIIRS,n,2.0NRT,300.2,12.3,D';
+    const csv = `${header}\n${row}\n`;
+
+    const records = parse(csv, {
+      columns: true,
+      skip_empty_lines: true,
+      trim: true,
+    }) as Record<string, string>[];
+
+    const raw = records[0];
+    const r = normalizeFirmsRecord(raw as any)!;
+
+    expect(r.rawSource).toBeDefined();
+    for (const key of Object.keys(raw)) {
+      expect(r.rawSource![key]).toBe(raw[key]);
+    }
+    // No columns dropped or added relative to what csv-parse actually produced.
+    expect(Object.keys(r.rawSource!).sort()).toEqual(Object.keys(raw).sort());
+  });
+
+  it('copies the raw row into rawSource rather than referencing it', () => {
+    const header = 'latitude,longitude,bright_ti4,scan,track,acq_date,acq_time,satellite,instrument,confidence,version,bright_ti5,frp,daynight';
+    const row = '28.6139,77.2090,340.5,0.5,0.45,2026-09-01,0830,N,VIIRS,n,2.0NRT,300.2,12.3,D';
+    const csv = `${header}\n${row}\n`;
+
+    const records = parse(csv, {
+      columns: true,
+      skip_empty_lines: true,
+      trim: true,
+    }) as Record<string, string>[];
+
+    const raw = records[0];
+    const r = normalizeFirmsRecord(raw as any)!;
+
+    expect(r.rawSource).not.toBe(raw);
+    raw.satellite = 'MUTATED';
+    expect(r.rawSource!.satellite).toBe('N');
   });
 });
