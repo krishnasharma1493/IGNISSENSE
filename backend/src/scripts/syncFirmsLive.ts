@@ -63,7 +63,16 @@ async function runLiveSync() {
   sampleClassifications.forEach((c: any, i) => {
     const h = c.hotspotId;
     if (h) {
-      console.log(`\n  [${i + 1}] Class: ${c.predictedClass.toUpperCase()} (Confidence: ${(c.confidence * 100).toFixed(0)}%)`);
+      if (c.pipelineStatus === 'unclassified_insufficient_features') {
+        const unresolved = c.featureCompleteness?.unresolved?.length
+          ? c.featureCompleteness.unresolved.join(', ')
+          : 'unknown';
+        console.log(`\n  [${i + 1}] Class: UNCLASSIFIED (insufficient features) — unresolved: ${unresolved}`);
+      } else {
+        const predictedClass = c.predictedClass ? c.predictedClass.toUpperCase() : 'UNKNOWN';
+        const confidencePct = typeof c.confidence === 'number' ? `${(c.confidence * 100).toFixed(0)}%` : 'N/A';
+        console.log(`\n  [${i + 1}] Class: ${predictedClass} (Confidence: ${confidencePct})`);
+      }
       console.log(`      Location: [${h.location.coordinates[0].toFixed(4)}°E, ${h.location.coordinates[1].toFixed(4)}°N]`);
       console.log(`      FRP: ${h.frp || 'N/A'} MW | Satellite: ${h.instrument} (${h.satellite}) | Detected: ${h.detectedAt}`);
       console.log(`      Persistence: ${(c.persistenceScore * 100).toFixed(0)}% | Anomaly: ${(c.anomalyScore * 100).toFixed(0)}%`);
