@@ -10,7 +10,9 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint src/",
     "seed": "tsx src/scripts/seed.ts",
-    "ingest:live": "tsx src/scripts/syncFirmsLive.ts"
+    "ingest:live": "tsx src/scripts/syncFirmsLive.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "keywords": [
     "sih",
@@ -39,6 +41,7 @@
     "eslint": "^10.9.0",
     "mongodb-memory-server": "^11.2.0",
     "tsx": "^4.23.12",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "vitest": "^2.1.9"
   }
 }
