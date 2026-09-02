@@ -35,6 +35,7 @@ async function startServer() {
     setInterval(runLiveSyncLoop, 5 * 60 * 1000);
   } catch (err: any) {
     console.error('[DB] Initial background connection error:', err.message);
+    process.exit(1);
   }
 }
 

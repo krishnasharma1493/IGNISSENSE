@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import axios from 'axios';
 import { config } from '../../config';
 import { liveIngestionState, getLatestIngestionStatus } from '../ingestion/ingestion.service';
+import { getDatabaseMode } from '../../config/database';
 import { Hotspot } from '../hotspots/hotspot.model';
 import { Facility } from '../facilities/facility.model';
 import { Classification } from '../classifications/classification.model';
@@ -66,6 +67,7 @@ systemRoutes.get('/status', async (_req: Request, res: Response) => {
         landCover: 'active',
       },
       demoMode: config.demoMode,
+      databaseMode: getDatabaseMode(),
       counts: {
         totalHotspots,
         totalFacilities,

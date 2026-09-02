@@ -6,6 +6,10 @@ export const config = {
   port: parseInt(process.env.PORT || '5000', 10),
   demoMode: process.env.DEMO_MODE === 'true',
 
+  // When false (default) the server refuses to start rather than silently
+  // serving an in-memory database as if it were live data.
+  allowEphemeralDb: process.env.ALLOW_EPHEMERAL_DB === 'true',
+
   // MongoDB
   mongodbUri: process.env.MONGODB_URI || 'mongodb://localhost:27017/sih26162',
 
