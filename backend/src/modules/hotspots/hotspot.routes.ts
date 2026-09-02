@@ -89,7 +89,8 @@ hotspotRoutes.get('/', async (req: Request, res: Response) => {
  */
 hotspotRoutes.get('/:id', async (req: Request, res: Response) => {
   try {
-    const hotspot = await Hotspot.findById(req.params.id).lean();
+    const projection = req.query.includeRaw === 'true' ? '+rawSource' : '';
+    const hotspot = await Hotspot.findById(req.params.id).select(projection).lean();
 
     if (!hotspot) {
       return res.status(404).json({

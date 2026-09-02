@@ -196,5 +196,7 @@ export function normalizeFirmsRecord(raw: FirmsRawRecord) {
     version: raw.version || null,
     ingestedAt: new Date(),
     region: isInDelhiNcr ? 'delhi_ncr' : 'india',
+    // Verbatim CSV row, kept for traceability back to the FIRMS product.
+    rawSource: { ...raw } as unknown as Record<string, string>,
   };
 }

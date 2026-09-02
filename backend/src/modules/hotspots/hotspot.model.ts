@@ -25,6 +25,7 @@ export interface IHotspot extends Document {
   version: string | null;
   ingestedAt: Date;
   region: string; // e.g. 'delhi_ncr', 'india'
+  rawSource?: Record<string, string>;
 }
 
 const hotspotSchema = new Schema<IHotspot>(
@@ -104,6 +105,11 @@ const hotspotSchema = new Schema<IHotspot>(
     region: {
       type: String,
       default: 'india',
+    },
+    rawSource: {
+      type: Schema.Types.Mixed,
+      default: null,
+      select: false, // excluded unless explicitly requested
     },
   },
   {
