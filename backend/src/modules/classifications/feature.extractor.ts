@@ -3,6 +3,9 @@ import { enrichHotspot, EnrichmentResult } from '../osm/enrichment.service';
 import { haversineMeters } from '../osm/enrichment.service';
 import { FACILITY_TYPE_ENCODING } from '../osm/taxonomy';
 import { IFacility } from '../facilities/facility.model';
+import { FACILITY_TYPE_MAP, LANDCOVER_MAP } from './featureContract';
+
+export { FACILITY_TYPE_MAP, LANDCOVER_MAP } from './featureContract';
 
 export interface ExtractedFeatures {
   // Thermal features from real sensor telemetry
@@ -190,51 +193,6 @@ export async function extractFeaturesForHotspot(
     enrichmentStatus: enrichment.enrichmentStatus,
   };
 }
-
-export const FACILITY_TYPE_MAP: Record<string, number> = {
-  none: 0,
-  refinery: 1,
-  power_plant: 2,
-  chemical: 3,
-  brick_kiln: 4,
-  steel_mill: 5,
-  quarry_mining: 6,
-  general_industrial: 7,
-  warehouse: 8,
-  // Extended types from India-wide taxonomy
-  chemical_plant: 3,
-  steel_plant: 5,
-  cement_plant: 9,
-  oil_gas_facility: 10,
-  petroleum_well: 11,
-  thermal_power_station: 2,
-  substation: 12,
-  mine: 6,
-  coal_mine: 6,
-  opencast_mine: 6,
-  quarry: 6,
-  factory: 7,
-  manufacturing: 7,
-  works: 7,
-  industrial_area: 7,
-  industrial: 7,
-  lpg_plant: 10,
-  pipeline_station: 10,
-  oil_terminal: 10,
-  gas_flare: 10,
-  solar_farm: 13,
-  wind_farm: 13,
-  hydroelectric: 2,
-};
-
-export const LANDCOVER_MAP: Record<string, number> = {
-  built_up: 0,
-  cropland: 1,
-  forest: 2,
-  bare: 3,
-  water: 4,
-  other: 5,
-};
 
 export function toCanonicalFeatureRecord(features: ExtractedFeatures): Record<string, number> {
   let numConfidence = 0.8;
