@@ -9,6 +9,7 @@ import { classificationRoutes } from './modules/classifications/classification.r
 import { alertRoutes } from './modules/alerts/alert.routes';
 import { ingestionRoutes } from './modules/ingestion/ingestion.routes';
 import { analyticsRoutes } from './modules/analytics/analytics.routes';
+import { geocodeRoutes } from './modules/geocode/geocode.routes';
 
 const app = express();
 
@@ -65,6 +66,7 @@ app.use('/api/v1/alerts', alertRoutes);
 app.use('/api/v1/ingestion', ingestionRoutes);
 app.use('/api/v1/analytics', analyticsRoutes);
 app.use('/api/v1/osm', osmRoutes);
+app.use('/api/v1/geocode', geocodeRoutes);
 
 
 // -- 404 Handler --
