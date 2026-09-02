@@ -1,8 +1,9 @@
 {
   "model_name": "Ignissense Production XGBoost Multi-Class Classifier",
   "version": "XGB-FIRMS-v1.0.0-DELHI_NCR",
-  "training_dataset_version": "NASA_FIRMS_OSM_CANONICAL_V1",
-  "label_generation_method": "weakly_supervised_heuristic_v1 (anchored in satellite telemetry and verified OSM perimeters)",
+  "training_dataset_version": "SYNTHETIC_GENERATOR_V1",
+  "label_generation_method": "synthetic — per-class numpy random distributions from construct_dataset(); labels are a deterministic function of the sampled features",
+  "provenance_warning": "This model has NOT been trained on NASA FIRMS or OpenStreetMap data. The metrics below are meaningless: they measure the model's ability to invert a generator it was handed, not real-world classification accuracy. Do not cite them as model performance.",
   "split_method": "GroupShuffleSplit (0.1\u00b0 geographic grid block cross-validation, zero spatial leakage)",
   "framework": "XGBoost 3.4.1",
   "trained_at": "2026-08-30T09:29:50.332573",

@@ -261,13 +261,13 @@ export default function AppBar({
           onClick={() => setStatusOpen((v) => !v)}
           className="ctl h-7 px-2 text-[11px]"
           aria-expanded={statusOpen}
-          aria-label={`Pipeline status: ${allOk ? 'all services healthy' : 'attention required'}`}
+          aria-label={`Pipeline status: near real-time data, ${allOk ? 'all services healthy' : 'attention required'}`}
         >
           <span
             className={`h-1.5 w-1.5 rounded-full ${allOk ? 'bg-ok live-dot' : 'bg-warn'}`}
             aria-hidden="true"
           />
-          <span className="hidden lg:inline">{allOk ? 'Live' : 'Degraded'}</span>
+          <span className="hidden lg:inline">{allOk ? 'Near real-time' : 'Degraded'}</span>
         </button>
 
         {statusOpen ? (

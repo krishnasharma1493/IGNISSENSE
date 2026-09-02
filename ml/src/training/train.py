@@ -83,9 +83,12 @@ LANDCOVER_MAP = {
 
 
 def construct_dataset(num_samples: int = 10000, random_state: int = 42) -> pd.DataFrame:
-    """
-    Constructs a calibrated training dataset anchored in NASA FIRMS VIIRS/MODIS telemetry
-    and OpenStreetMap infrastructure. Includes spatial coordinates to enforce spatial block splitting.
+    """Generate a SYNTHETIC training set from per-class numpy distributions.
+
+    This is not FIRMS or OSM data. Labels are a deterministic function of the
+    sampled features, which is why evaluation metrics come out at 1.0. Replace
+    this with the weak-supervision labeller over real detections before any
+    metric from this pipeline is reported as model performance.
     """
     np.random.seed(random_state)
     records = []
