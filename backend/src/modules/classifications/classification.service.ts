@@ -92,7 +92,7 @@ async function runModelInference(
   modelVersion: string;
   isModelLive: boolean;
 }> {
-  const canonicalFeatures = toCanonicalFeatureRecord(features);
+  const canonicalFeatures = toCanonicalFeatureRecord(features).values;
 
   try {
     const response = await axios.post(

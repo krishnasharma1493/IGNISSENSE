@@ -79,7 +79,7 @@ async function runPipelineVerification() {
     priorObservations: [],
   };
 
-  const canonical = toCanonicalFeatureRecord(mockExtracted);
+  const canonical = toCanonicalFeatureRecord(mockExtracted).values;
   assert(canonical.frp === 45.0, 'FRP mapped');
   assert(canonical.is_night === 1, 'is_night mapped');
   assert(canonical.facility_type_encoded === 1, 'refinery mapped to encoded 1');

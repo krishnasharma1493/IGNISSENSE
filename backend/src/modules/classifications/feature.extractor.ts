@@ -2,7 +2,7 @@ import { IHotspot, Hotspot } from '../hotspots/hotspot.model';
 import { enrichHotspot, EnrichmentResult } from '../osm/enrichment.service';
 import { haversineMeters } from '../osm/enrichment.service';
 import { IFacility } from '../facilities/facility.model';
-import { FACILITY_TYPE_MAP, LANDCOVER_MAP } from './featureContract';
+import { FACILITY_TYPE_MAP, LANDCOVER_MAP, REQUIRED_FEATURES } from './featureContract';
 
 export { FACILITY_TYPE_MAP, LANDCOVER_MAP } from './featureContract';
 
@@ -193,8 +193,25 @@ export async function extractFeaturesForHotspot(
   };
 }
 
-export function toCanonicalFeatureRecord(features: ExtractedFeatures): Record<string, number> {
-  let numConfidence = 0.8;
+export interface CanonicalFeatures {
+  values: Record<string, number | null>;
+  unresolved: string[];
+}
+
+/**
+ * Build the model input.
+ *
+ * Absence is represented as null and reported in `unresolved`. Nothing is
+ * substituted: the previous implementation emitted 25000 for an unmeasured
+ * facility distance and -1 for absent history, both of which are
+ * indistinguishable downstream from real measurements.
+ *
+ * `landcover_encoded` is null rather than 5 when enrichment found nothing,
+ * because 5 means "other" — a real observed category — and conflating the two
+ * is exactly the bug this replaces.
+ */
+export function toCanonicalFeatureRecord(features: ExtractedFeatures): CanonicalFeatures {
+  let numConfidence: number | null = null;
   if (typeof features.confidence === 'number') {
     numConfidence = features.confidence / 100;
   } else if (typeof features.confidence === 'string') {
@@ -204,26 +221,30 @@ export function toCanonicalFeatureRecord(features: ExtractedFeatures): Record<st
     else if (lower === 'l' || lower === 'low') numConfidence = 0.4;
     else {
       const parsed = parseFloat(features.confidence);
-      numConfidence = !isNaN(parsed) ? (parsed > 1 ? parsed / 100 : parsed) : 0.75;
+      numConfidence = Number.isNaN(parsed) ? null : parsed > 1 ? parsed / 100 : parsed;
     }
   }
 
-  return {
-    frp: Number(features.frp.toFixed(2)),
-    brightness: Number(features.brightness.toFixed(2)),
-    brightness_ti5: Number(features.brightnessTi5.toFixed(2)),
-    temp_delta_ti4_ti5: Number(features.tempDelta.toFixed(2)),
-    confidence: Number(numConfidence.toFixed(3)),
+  const hasEnrichment = features.facilityDistanceMeters !== null;
+
+  const values: Record<string, number | null> = {
+    frp: features.frp ?? null,
+    brightness: features.brightness ?? null,
+    brightness_ti5: features.brightnessTi5 ?? null,
+    temp_delta_ti4_ti5: features.tempDelta ?? null,
+    confidence: numConfidence,
     is_night: features.dayNight === 'N' ? 1 : 0,
-    facility_distance_m:
-      features.facilityDistanceMeters !== null ? Number(features.facilityDistanceMeters.toFixed(1)) : 25000.0,
-    facility_type_encoded: FACILITY_TYPE_MAP[features.facilityType] ?? 0,
-    landcover_encoded: LANDCOVER_MAP[features.landCover] ?? 5,
-    nearby_cluster_count_3km: features.nearbyClusterCount3km,
-    historical_recurrence_1_5km: features.historicalOverpassesWithin1_5km,
-    historical_mean_frp: Number(features.historicalMeanFrp.toFixed(2)),
-    frp_z_score: Number(features.frpZScore.toFixed(2)),
-    days_since_last_detection:
-      features.daysSinceLastDetection !== null ? features.daysSinceLastDetection : -1,
+    facility_distance_m: features.facilityDistanceMeters,
+    facility_type_encoded: hasEnrichment ? FACILITY_TYPE_MAP[features.facilityType] ?? 0 : null,
+    landcover_encoded: hasEnrichment ? LANDCOVER_MAP[features.landCover] ?? null : null,
+    nearby_cluster_count_3km: features.nearbyClusterCount3km ?? null,
+    historical_recurrence_1_5km: features.historicalOverpassesWithin1_5km ?? null,
+    historical_mean_frp: features.historicalMeanFrp ?? null,
+    frp_z_score: features.frpZScore ?? null,
+    days_since_last_detection: features.daysSinceLastDetection,
   };
+
+  const unresolved = REQUIRED_FEATURES.filter((f) => values[f] === null || values[f] === undefined);
+
+  return { values, unresolved: [...unresolved] };
 }

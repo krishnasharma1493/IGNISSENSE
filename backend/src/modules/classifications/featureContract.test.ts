@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import {
   FACILITY_TYPE_MAP, LANDCOVER_MAP, REQUIRED_FEATURES, OPTIONAL_FEATURES,
 } from './featureContract';
+import { toCanonicalFeatureRecord } from './feature.extractor';
 
 const schema = JSON.parse(
   readFileSync(join(__dirname, '../../../../ml/models/feature_schema.json'), 'utf8')
@@ -51,5 +52,45 @@ describe('feature contract lockstep', () => {
       'feature.extractor.ts must not import FACILITY_TYPE_ENCODING — ' +
         'the model input vocabulary must come only from featureContract.ts'
     ).toBe(false);
+  });
+});
+
+const base: any = {
+  frp: 10, brightness: 330, brightnessTi5: 300, tempDelta: 30,
+  confidence: 'n', dayNight: 'N',
+  facilityDistanceMeters: null, facilityType: 'none', landCover: 'other',
+  nearbyClusterCount3km: 2,
+  historicalOverpassesWithin1_5km: 0, historicalMeanFrp: 0, frpZScore: 0,
+  daysSinceLastDetection: null,
+};
+
+describe('toCanonicalFeatureRecord', () => {
+  it('never substitutes 25000 for an unmeasured facility distance', () => {
+    const { values } = toCanonicalFeatureRecord(base);
+    expect(values.facility_distance_m).toBeNull();
+  });
+
+  it('reports unresolved required features', () => {
+    const { unresolved } = toCanonicalFeatureRecord(base);
+    expect(unresolved).toContain('facility_distance_m');
+  });
+
+  it('never substitutes -1 for absent history', () => {
+    const { values } = toCanonicalFeatureRecord(base);
+    expect(values.days_since_last_detection).toBeNull();
+  });
+
+  it('does not treat absent history as unresolved', () => {
+    const { unresolved } = toCanonicalFeatureRecord(base);
+    expect(unresolved).not.toContain('days_since_last_detection');
+  });
+
+  it('passes measured values through untouched', () => {
+    const { values, unresolved } = toCanonicalFeatureRecord({
+      ...base, facilityDistanceMeters: 137, landCover: 'built_up',
+    });
+    expect(values.facility_distance_m).toBe(137);
+    expect(values.landcover_encoded).toBe(0);
+    expect(unresolved).toEqual([]);
   });
 });
