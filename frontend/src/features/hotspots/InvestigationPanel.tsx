@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { CLASS_CONFIG, CLASSIFICATION_CLASSES } from '../../types';
 import type { Classification, Hotspot, OsmFeature } from '../../types';
-import { useHotspotHistory } from '../../api/hooks';
+import { useHotspotHistory, useReverseGeocode } from '../../api/hooks';
 import Panel from '../../components/ui/Panel';
 import { Section } from '../../components/ui/Provenance';
 import { Bar, Field, Metric, MISSING } from '../../components/ui/Readout';
@@ -49,6 +49,8 @@ export default function InvestigationPanel({
 
   const [lng, lat] = hotspot.location.coordinates;
   const eventId = `HS-${hotspot._id.slice(-6).toUpperCase()}`;
+
+  const { data: place } = useReverseGeocode(lat, lng);
 
   const predicted = classification?.predictedClass ?? null;
   const isOffline = Boolean(classification?.modelVersion?.endsWith('-OFFLINE'));
@@ -108,6 +110,15 @@ export default function InvestigationPanel({
             </span>
             <span className="sr-only">Copy coordinates</span>
           </button>
+
+          {place ? (
+            <p className="mt-0.5 truncate text-[11px] leading-snug text-ink-2" title={place.displayName ?? undefined}>
+              {[place.locality, place.city, place.district, place.state]
+                .filter(Boolean)
+                .join(' · ')}
+              <span className="ml-1 text-[10px] text-ink-3">{place.attribution}</span>
+            </p>
+          ) : null}
         </div>
 
         <button

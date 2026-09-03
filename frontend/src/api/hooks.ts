@@ -252,4 +252,30 @@ export function useSystemStatus() {
   });
 }
 
+// -- Reverse geocoding --
+
+export interface PlaceResult {
+  locality: string | null;
+  city: string | null;
+  district: string | null;
+  state: string | null;
+  country: string | null;
+  displayName: string | null;
+  attribution: string;
+  cached: boolean;
+}
+
+export function useReverseGeocode(lat: number | null, lon: number | null) {
+  return useQuery({
+    queryKey: ['geocode', lat, lon],
+    queryFn: async () => {
+      const res = await api.get('/geocode/reverse', { params: { lat, lon } });
+      return res.data.data as PlaceResult;
+    },
+    enabled: lat !== null && lon !== null,
+    staleTime: Infinity,
+    retry: false,
+  });
+}
+
 
