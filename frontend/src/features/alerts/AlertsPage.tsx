@@ -221,7 +221,12 @@ export default function AlertsPage({ onInvestigate }: AlertsPageProps) {
                         </span>
                         {hotspot?.frp != null ? <span>{hotspot.frp.toFixed(1)} MW</span> : null}
                         {classification ? (
-                          <span>anomaly {classification.anomalyScore.toFixed(2)}</span>
+                          <span>
+                            anomaly{' '}
+                            {classification.anomalyScore != null
+                              ? classification.anomalyScore.toFixed(2)
+                              : MISSING}
+                          </span>
                         ) : null}
                       </div>
                     </button>
@@ -359,7 +364,14 @@ export default function AlertsPage({ onInvestigate }: AlertsPageProps) {
                           label="Persistence"
                           value={detail.classification.persistenceScore.toFixed(2)}
                         />
-                        <Metric label="Anomaly" value={detail.classification.anomalyScore.toFixed(2)} />
+                        <Metric
+                          label="Anomaly"
+                          value={
+                            detail.classification.anomalyScore != null
+                              ? detail.classification.anomalyScore.toFixed(2)
+                              : null
+                          }
+                        />
                       </div>
                     </>
                   ) : (

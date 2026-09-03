@@ -34,6 +34,13 @@ const SRC_FACILITIES = 'facilities';
 
 const EMPTY = { type: 'FeatureCollection' as const, features: [] as any[] };
 
+/**
+ * The outline colour for a detection carrying no class. Deliberately achromatic
+ * and deliberately not `CLASS_CONFIG.other_or_uncertain.mark` (#8E8E93), so it
+ * can never be mistaken for the Uncertain class in the legend.
+ */
+const UNCLASSIFIED_RING = '#3C4147';
+
 export default function MapView({
   hotspots,
   classifications,
@@ -68,9 +75,19 @@ export default function MapView({
       // with no FRP reports no FRP; nothing is substituted.
       features: hotspots.map((h) => {
         const c = classifications.get(h._id);
-        const isUnclassified = c?.pipelineStatus === 'unclassified_insufficient_features';
-        const cls = !c || isUnclassified ? 'other_or_uncertain' : c.predictedClass!;
-        const classLabel = isUnclassified ? '' : c ? CLASS_CONFIG[cls].label : '';
+        // No class was assigned: either the gate short-circuited inference for
+        // want of measured spatial features, or the row has not been through
+        // the pipeline yet. Neither is a model verdict.
+        const isUnclassified =
+          !c || c.pipelineStatus === 'unclassified_insufficient_features' || !c.predictedClass;
+        const cls = isUnclassified ? 'other_or_uncertain' : c!.predictedClass!;
+        const classLabel = isUnclassified ? '' : CLASS_CONFIG[cls].label;
+        // Saturated colour only ever encodes a real thermal-event class. An
+        // unclassified detection is drawn as a hollow achromatic ring, which no
+        // legend entry and no class marker can be confused with — filling it
+        // with the `other_or_uncertain` grey made ~92% of India read as a model
+        // verdict of that class.
+        const showAsUnclassified = renderMode !== 'firms' && isUnclassified;
         return {
           type: 'Feature' as const,
           geometry: h.location,
@@ -84,7 +101,12 @@ export default function MapView({
             instrument: h.instrument ?? '',
             confidence: h.confidence === null ? '' : String(h.confidence),
             classLabel,
-            color: renderMode === 'firms' ? FIRMS_RED : CLASS_CONFIG[cls].mark,
+            unclassified: showAsUnclassified,
+            color: showAsUnclassified
+              ? UNCLASSIFIED_RING
+              : renderMode === 'firms'
+                ? FIRMS_RED
+                : CLASS_CONFIG[cls].mark,
           },
         };
       }),
@@ -294,10 +316,28 @@ export default function MapView({
             // Visible at every zoom. At the national view these dots are the
             // product; hiding them behind a heatmap leaves the map looking empty.
             'circle-radius': ['interpolate', ['linear'], ['zoom'], 3, 1.8, 5, 2.6, 10, 4.5, 14, 7],
+            // Hollow ring for a detection with no assigned class: no fill, a
+            // neutral outline, and a white halo so it stays legible on dark
+            // imagery. Form, not hue, carries the distinction.
             'circle-color': ['get', 'color'],
-            'circle-stroke-width': ['interpolate', ['linear'], ['zoom'], 5, 0.4, 9, 1],
-            'circle-stroke-color': 'rgba(255,255,255,0.9)',
-            'circle-opacity': 0.95,
+            'circle-stroke-width': [
+              'case',
+              ['boolean', ['get', 'unclassified'], false],
+              1.3,
+              ['interpolate', ['linear'], ['zoom'], 5, 0.4, 9, 1] as any,
+            ],
+            'circle-stroke-color': [
+              'case',
+              ['boolean', ['get', 'unclassified'], false],
+              UNCLASSIFIED_RING,
+              'rgba(255,255,255,0.9)',
+            ],
+            'circle-opacity': [
+              'case',
+              ['boolean', ['get', 'unclassified'], false],
+              0,
+              0.95,
+            ],
           },
         });
       }
@@ -409,8 +449,14 @@ export default function MapView({
     if (!selectedHotspot) return;
 
     const anchor = selectedHotspot.location.coordinates as [number, number];
-    const cls = classifications.get(selectedHotspot._id)?.predictedClass ?? 'other_or_uncertain';
-    const color = renderMode === 'firms' ? FIRMS_RED : CLASS_CONFIG[cls].mark;
+    const selectedClassification = classifications.get(selectedHotspot._id);
+    const selectedClass = selectedClassification?.predictedClass ?? null;
+    const color =
+      renderMode === 'firms'
+        ? FIRMS_RED
+        : selectedClass
+          ? CLASS_CONFIG[selectedClass].mark
+          : UNCLASSIFIED_RING;
 
     const anchorEl = document.createElement('div');
     anchorEl.style.cssText = 'width:44px;height:44px;display:grid;place-items:center;pointer-events:none';
@@ -422,7 +468,9 @@ export default function MapView({
         <line x1="22" y1="35" x2="22" y2="43" stroke="${color}" stroke-width="1.5"/>
         <line x1="1" y1="22" x2="9" y2="22" stroke="${color}" stroke-width="1.5"/>
         <line x1="35" y1="22" x2="43" y2="22" stroke="${color}" stroke-width="1.5"/>
-        <circle cx="22" cy="22" r="4" fill="${color}" stroke="#ffffff" stroke-width="1.5"/>
+        <circle cx="22" cy="22" r="4" fill="${
+          selectedClass || renderMode === 'firms' ? color : 'none'
+        }" stroke="${selectedClass || renderMode === 'firms' ? '#ffffff' : color}" stroke-width="1.5"/>
       </svg>`;
     anchorMarkerRef.current = new Marker({ element: anchorEl }).setLngLat(anchor).addTo(map);
 

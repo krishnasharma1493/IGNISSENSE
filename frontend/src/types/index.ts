@@ -79,7 +79,8 @@ export interface Classification {
   confidence: number | null;
   classProbabilities: Record<ClassificationClass, number> | null;
   persistenceScore: number;
-  anomalyScore: number;
+  /** Null when FRP was not reported — the heuristic has no input to score. */
+  anomalyScore: number | null;
   nearestFacilityId: Facility | null;
   facilityDistanceMeters: number | null;
   landCover: string;

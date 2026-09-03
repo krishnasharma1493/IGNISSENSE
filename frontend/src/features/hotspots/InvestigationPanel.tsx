@@ -60,10 +60,16 @@ export default function InvestigationPanel({
       ? classification.nearestFacilityId
       : null;
 
-  // The backend substitutes 25 km when a hotspot falls outside OSM tile coverage.
-  // Presenting that as a measured distance would be misleading, so it is called out.
+  // The pipeline no longer substitutes a 25 km sentinel for an unmeasured
+  // distance — an unresolved facility distance arrives as null and the whole
+  // row is gated to `unclassified_insufficient_features`.
   const facilityDistance = classification?.facilityDistanceMeters ?? null;
-  const isCoverageSentinel = facilityDistance === 25000 && !nearestFacility;
+
+  // `landCover` defaults to 'other' on the schema and enrichHotspot returns
+  // 'other' for no OSM coverage, so on an unclassified row it is a schema
+  // default wearing the clothes of a measurement. Only shown when the
+  // classifier actually ran on measured spatial features.
+  const isClassified = classification?.pipelineStatus === 'classified';
 
   const copyCoordinates = async () => {
     try {
@@ -112,12 +118,19 @@ export default function InvestigationPanel({
           </button>
 
           {place ? (
-            <p className="mt-0.5 truncate text-[11px] leading-snug text-ink-2" title={place.displayName ?? undefined}>
-              {[place.locality, place.city, place.district, place.state]
-                .filter(Boolean)
-                .join(' · ')}
-              <span className="ml-1 text-[10px] text-ink-3">{place.attribution}</span>
-            </p>
+            <div className="mt-0.5">
+              <p
+                className="truncate text-[11px] leading-snug text-ink-2"
+                title={place.displayName ?? undefined}
+              >
+                {[place.locality, place.city, place.district, place.state]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </p>
+              {/* Attribution is a licence obligation, so it sits outside the
+                  truncated element and can never be clipped by a long name. */}
+              <p className="text-[10px] leading-snug text-ink-3">{place.attribution}</p>
+            </div>
           ) : null}
         </div>
 
@@ -253,8 +266,16 @@ export default function InvestigationPanel({
             />
             <Metric
               label="Anomaly"
-              value={classification ? classification.anomalyScore.toFixed(2) : null}
-              band={classification ? band(classification.anomalyScore) : undefined}
+              value={
+                classification?.anomalyScore != null
+                  ? classification.anomalyScore.toFixed(2)
+                  : null
+              }
+              band={
+                classification?.anomalyScore != null
+                  ? band(classification.anomalyScore)
+                  : undefined
+              }
             />
           </div>
         </Section>
@@ -282,22 +303,14 @@ export default function InvestigationPanel({
             />
             <Field
               label="Distance"
-              value={
-                isCoverageSentinel
-                  ? null
-                  : formatDistance(facilityDistance ?? nearbyOsmFeatures[0]?.distance_m)
-              }
+              value={formatDistance(facilityDistance ?? nearbyOsmFeatures[0]?.distance_m)}
               numeric
             />
-            <Field label="Land cover" value={formatLandCover(classification?.landCover)} />
+            <Field
+              label="Land cover"
+              value={isClassified ? formatLandCover(classification?.landCover) : null}
+            />
           </dl>
-
-          {isCoverageSentinel ? (
-            <p className="inset-surface rounded-md px-2.5 py-2 text-[11px] leading-relaxed text-ink-2">
-              No OpenStreetMap coverage has been extracted for this tile yet, so facility distance is
-              unmeasured. The classifier received a 25 km placeholder for this detection.
-            </p>
-          ) : null}
 
           {/* Investigation network control */}
           {nearbyOsmFeatures.length > 0 ? (

@@ -140,7 +140,19 @@ export default function LayersDrawer(props: LayersDrawerProps) {
     onFiltersChange,
     visibleCount,
     totalCount,
+    hotspots,
+    classifications,
   } = props;
+
+  // Detections the classifier never ran on. They are drawn as hollow rings
+  // rather than in any class colour, so the legend has to say so — otherwise
+  // the largest group on the map has no entry explaining its mark.
+  const unclassifiedCount = hotspots.reduce((n, h) => {
+    const c = classifications.get(h._id);
+    return !c || c.pipelineStatus === 'unclassified_insufficient_features' || !c.predictedClass
+      ? n + 1
+      : n;
+  }, 0);
 
   if (!open) {
     return (
@@ -239,6 +251,21 @@ export default function LayersDrawer(props: LayersDrawerProps) {
                 );
               })}
             </ul>
+
+            <div className="mt-1 flex items-center gap-2 border-t border-hairline pt-1.5">
+              <span className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              <span
+                className="h-2.5 w-2.5 shrink-0 rounded-full border-[1.5px] border-[#3C4147] bg-transparent"
+                aria-hidden="true"
+              />
+              <span className="min-w-0 flex-1 text-[12px] text-ink-2">
+                Not classified
+                <span className="block text-[10px] leading-snug text-ink-3">
+                  Hollow ring &mdash; the classifier did not run. Filtered with Uncertain.
+                </span>
+              </span>
+              <span className="num text-[11px] text-ink-3">{unclassifiedCount}</span>
+            </div>
           </div>
 
           <div className="border-t border-hairline pt-1">
