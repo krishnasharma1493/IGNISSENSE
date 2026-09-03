@@ -7,11 +7,14 @@ import { FACILITY_TYPE_MAP, LANDCOVER_MAP, REQUIRED_FEATURES } from './featureCo
 export { FACILITY_TYPE_MAP, LANDCOVER_MAP } from './featureContract';
 
 export interface ExtractedFeatures {
-  // Thermal features from real sensor telemetry
-  frp: number;
-  brightness: number;
-  brightnessTi5: number;
-  tempDelta: number; // Brightness - BrightnessTi5 (thermal contrast)
+  // Thermal features from real sensor telemetry.
+  // All four are nullable: FIRMS does not always supply FRP or both brightness
+  // bands, and a detection that was never measured must not be handed a
+  // plausible number. `tempDelta` is null whenever either band is null.
+  frp: number | null;
+  brightness: number | null;
+  brightnessTi5: number | null;
+  tempDelta: number | null; // brightness - brightnessTi5 (thermal contrast)
   dayNight: 'D' | 'N';
   instrument: string;
   satellite: string;
@@ -24,13 +27,17 @@ export interface ExtractedFeatures {
   isInsideIndustrialPerimeter: boolean; // < 400m
   isNearIndustrialPerimeter: boolean; // < 1500m
   nearbyClusterCount3km: number;
-  landCover: 'built_up' | 'forest' | 'cropland' | 'bare' | 'other';
+  landCover: 'built_up' | 'forest' | 'cropland' | 'bare' | 'water' | 'other';
 
   // Temporal & Historical features from real FIRMS history
   historicalOverpassesWithin1_5km: number;
-  historicalMeanFrp: number;
-  historicalStdDevFrp: number;
-  frpZScore: number;
+  // Null when there is no prior detection at this coordinate. A first-ever
+  // detection has no baseline; echoing back its own FRP as the "historical
+  // mean" would make it indistinguishable from a site that has burned at
+  // exactly this intensity before.
+  historicalMeanFrp: number | null;
+  historicalStdDevFrp: number | null;
+  frpZScore: number | null;
   daysSinceLastDetection: number | null;
   priorObservations: Array<{
     detectedAt: Date;
@@ -60,10 +67,15 @@ export async function extractFeaturesForHotspot(
   hotspot: IHotspot
 ): Promise<ExtractedFeatures> {
   const [lon, lat] = hotspot.location.coordinates;
-  const frp = hotspot.frp || 10.0;
-  const brightness = hotspot.brightness || 310.0;
-  const brightnessTi5 = hotspot.brightnessTi5 || 290.0;
-  const tempDelta = Math.max(0, brightness - brightnessTi5);
+  // Read straight through. `??` rather than `||` so a genuine measured 0 is
+  // kept, and no default is supplied for an absent measurement.
+  const frp = hotspot.frp ?? null;
+  const brightness = hotspot.brightness ?? null;
+  const brightnessTi5 = hotspot.brightnessTi5 ?? null;
+  const tempDelta =
+    brightness !== null && brightnessTi5 !== null
+      ? Math.max(0, brightness - brightnessTi5)
+      : null;
 
   // 1. Spatial context: India-wide OSM enrichment
   const enrichment: EnrichmentResult = await enrichHotspot(lon, lat, 25000);
@@ -72,7 +84,9 @@ export async function extractFeaturesForHotspot(
   const distanceMeters = enrichment.facilityDistanceMeters;
   const isInsideIndustrialPerimeter = distanceMeters !== null && distanceMeters <= 400;
   const isNearIndustrialPerimeter = distanceMeters !== null && distanceMeters <= 1500;
-  const landCover = enrichment.inferredLandCover === 'water' ? 'other' : enrichment.inferredLandCover;
+  // `water` is a measured category with its own code (4) in all three lockstep
+  // maps; relabelling it 'other' discarded a real observation.
+  const landCover = enrichment.inferredLandCover;
 
   // Build a compatibility shim for nearestFacility (used by explanation generation)
   let nearestFacility: IFacility | null = null;
@@ -86,7 +100,7 @@ export async function extractFeaturesForHotspot(
       _id: null,
       location: {
         type: 'Point',
-        coordinates: [lon, lat], // approximate
+        coordinates: [nf.longitude, nf.latitude],
       },
     } as any;
   }
@@ -139,23 +153,28 @@ export async function extractFeaturesForHotspot(
   }));
 
   const historicalCount = priorObservations.length;
-  let historicalMeanFrp = frp;
-  let historicalStdDevFrp = 5.0;
-  let frpZScore = 0.0;
+  // No history is not a baseline of zero, nor a baseline equal to this
+  // detection. It is the absence of one, and it is passed on as such. These are
+  // OPTIONAL features, so a null here does not gate the row to unclassified.
+  let historicalMeanFrp: number | null = null;
+  let historicalStdDevFrp: number | null = null;
+  let frpZScore: number | null = null;
   let daysSinceLastDetection: number | null = null;
 
   if (historicalCount > 0) {
     const frpValues = priorObservations.map((p) => p.frp);
     const sum = frpValues.reduce((a, b) => a + b, 0);
-    historicalMeanFrp = Number((sum / historicalCount).toFixed(2));
+    const meanFrp = Number((sum / historicalCount).toFixed(2));
+    historicalMeanFrp = meanFrp;
 
-    const sqDiffSum = frpValues.reduce((a, b) => a + Math.pow(b - historicalMeanFrp, 2), 0);
-    historicalStdDevFrp = Number(Math.sqrt(sqDiffSum / historicalCount).toFixed(2));
+    const sqDiffSum = frpValues.reduce((a, b) => a + Math.pow(b - meanFrp, 2), 0);
+    const stdDevFrp = Number(Math.sqrt(sqDiffSum / historicalCount).toFixed(2));
+    historicalStdDevFrp = stdDevFrp;
 
-    // Statistical Z-score calculation
-    frpZScore = Number(
-      ((frp - historicalMeanFrp) / (historicalStdDevFrp + 2.0)).toFixed(2)
-    );
+    // Statistical Z-score calculation. Undefined without a measured FRP to
+    // compare against the baseline.
+    frpZScore =
+      frp === null ? null : Number(((frp - meanFrp) / (stdDevFrp + 2.0)).toFixed(2));
 
     const latestPrior = priorObservations[0];
     if (latestPrior) {
@@ -235,7 +254,13 @@ export function toCanonicalFeatureRecord(features: ExtractedFeatures): Canonical
     confidence: numConfidence,
     is_night: features.dayNight === 'N' ? 1 : 0,
     facility_distance_m: features.facilityDistanceMeters,
-    facility_type_encoded: hasEnrichment ? FACILITY_TYPE_MAP[features.facilityType] ?? 0 : null,
+    // An unmapped subcategory (the OSM taxonomy emits `waste_disposal`,
+    // `railway_yard`, `unknown` and others that the trained vocabulary has no
+    // code for) is UNRESOLVED, not `none`. Falling back to 0 produced a
+    // self-contradictory vector — a facility 200 m away that does not exist.
+    // `none` still encodes to 0, but only via the map, when enrichment
+    // genuinely reports no facility.
+    facility_type_encoded: hasEnrichment ? FACILITY_TYPE_MAP[features.facilityType] ?? null : null,
     landcover_encoded: hasEnrichment ? LANDCOVER_MAP[features.landCover] ?? null : null,
     nearby_cluster_count_3km: features.nearbyClusterCount3km ?? null,
     historical_recurrence_1_5km: features.historicalOverpassesWithin1_5km ?? null,

@@ -24,7 +24,8 @@ export interface IClassification extends Document {
   confidence: number | null;
   classProbabilities: Record<ClassificationClass, number> | null;
   persistenceScore: number;
-  anomalyScore: number;
+  /** Null when FRP was not reported: the heuristic has no input to score. */
+  anomalyScore: number | null;
   nearestFacilityId: Types.ObjectId | null;
   facilityDistanceMeters: number | null;
   landCover: string; // 'forest', 'cropland', 'built_up', 'bare', 'water', 'other'
@@ -74,7 +75,8 @@ const classificationSchema = new Schema<IClassification>(
     },
     anomalyScore: {
       type: Number,
-      required: true,
+      required: false,
+      default: null,
       min: 0,
       max: 1,
     },

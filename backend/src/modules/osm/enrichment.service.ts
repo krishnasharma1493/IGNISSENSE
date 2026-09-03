@@ -29,6 +29,9 @@ export interface NearbyFeatureInfo {
   distance_m: number;
   osmId: number;
   sourceId: string;
+  /** The feature's own position. Never the querying hotspot's. */
+  longitude: number;
+  latitude: number;
 }
 
 export interface EnrichmentResult {
@@ -206,6 +209,8 @@ async function enrichFromLegacyFacilities(
         distance_m: dist,
         osmId: fac.osmId,
         sourceId: fac.sourceId,
+        longitude: fac.location.coordinates[0],
+        latitude: fac.location.coordinates[1],
       };
     }
   }
@@ -265,6 +270,8 @@ async function findNearestByCategories(
       distance_m: dist,
       osmId: f.osmId,
       sourceId: f.sourceId,
+      longitude: f.longitude,
+      latitude: f.latitude,
     };
   } catch {
     return null;
@@ -305,6 +312,8 @@ async function findNearestBySubcategory(
       distance_m: dist,
       osmId: f.osmId,
       sourceId: f.sourceId,
+      longitude: f.longitude,
+      latitude: f.latitude,
     };
   } catch {
     return null;
@@ -345,6 +354,8 @@ async function findNearestBySubcategories(
       distance_m: dist,
       osmId: f.osmId,
       sourceId: f.sourceId,
+      longitude: f.longitude,
+      latitude: f.latitude,
     };
   } catch {
     return null;

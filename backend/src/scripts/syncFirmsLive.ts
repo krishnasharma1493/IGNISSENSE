@@ -74,8 +74,11 @@ async function runLiveSync() {
         console.log(`\n  [${i + 1}] Class: ${predictedClass} (Confidence: ${confidencePct})`);
       }
       console.log(`      Location: [${h.location.coordinates[0].toFixed(4)}°E, ${h.location.coordinates[1].toFixed(4)}°N]`);
-      console.log(`      FRP: ${h.frp || 'N/A'} MW | Satellite: ${h.instrument} (${h.satellite}) | Detected: ${h.detectedAt}`);
-      console.log(`      Persistence: ${(c.persistenceScore * 100).toFixed(0)}% | Anomaly: ${(c.anomalyScore * 100).toFixed(0)}%`);
+      const frpText = typeof h.frp === 'number' ? `${h.frp} MW` : 'not reported';
+      const anomalyText =
+        typeof c.anomalyScore === 'number' ? `${(c.anomalyScore * 100).toFixed(0)}%` : 'not computed';
+      console.log(`      FRP: ${frpText} | Satellite: ${h.instrument} (${h.satellite}) | Detected: ${h.detectedAt}`);
+      console.log(`      Persistence: ${(c.persistenceScore * 100).toFixed(0)}% | Anomaly: ${anomalyText}`);
       if (c.nearestFacilityId) {
         console.log(`      Nearest Facility: ${c.nearestFacilityId.name} (${c.facilityDistanceMeters}m)`);
       }
