@@ -35,16 +35,39 @@ function schedule<T>(fn: () => Promise<T>): Promise<T> {
   return run;
 }
 
+/** Shape for the wire response, whether the source was a cache hit or a fresh Nominatim call. */
+interface PlaceFields {
+  locality: string | null;
+  city: string | null;
+  district: string | null;
+  state: string | null;
+  country: string | null;
+  displayName: string | null;
+}
+
+/**
+ * The single place this response shape is assembled, so a cache hit and a cache
+ * miss can never drift apart into different key sets again.
+ */
+export function toPlaceResult(doc: PlaceFields, cached: boolean): PlaceResult {
+  return {
+    locality: doc.locality,
+    city: doc.city,
+    district: doc.district,
+    state: doc.state,
+    country: doc.country,
+    displayName: doc.displayName,
+    attribution: OSM_ATTRIBUTION,
+    cached,
+  };
+}
+
 export async function reverseGeocode(lat: number, lon: number): Promise<PlaceResult> {
   const key = cacheKey(lat, lon);
 
   const hit = await GeocodeCache.findOne({ key }).lean();
   if (hit) {
-    return {
-      locality: hit.locality, city: hit.city, district: hit.district,
-      state: hit.state, country: hit.country, displayName: hit.displayName,
-      attribution: OSM_ATTRIBUTION, cached: true,
-    };
+    return toPlaceResult(hit, true);
   }
 
   const res = await schedule(() =>
@@ -70,5 +93,5 @@ export async function reverseGeocode(lat: number, lon: number): Promise<PlaceRes
 
   await GeocodeCache.updateOne({ key }, doc, { upsert: true });
 
-  return { ...doc, attribution: OSM_ATTRIBUTION, cached: false };
+  return toPlaceResult(doc, false);
 }
