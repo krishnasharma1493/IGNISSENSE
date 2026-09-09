@@ -347,8 +347,14 @@ export default function MapView({
           },
         });
       }
-    } catch {
-      // A style swap can land mid-call; the next styledata event re-runs this.
+    } catch (err) {
+      // A style swap can land mid-call and the next styledata event re-runs
+      // this, so a throw here is usually harmless. It is not always: a bad
+      // layer definition throws on every pass and the layer simply never
+      // exists, which is silent on the map and silent in the console. A
+      // rejected `hotspot-point` cost the detection dots and every click
+      // handler bound to them. Log it rather than discard it.
+      console.warn('[MapView] syncLayers failed; a layer may be missing:', err);
     }
   }, []);
 
