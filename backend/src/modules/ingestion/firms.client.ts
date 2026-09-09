@@ -49,10 +49,18 @@ export type FirmsSensor =
   | 'VIIRS_NOAA20_SP'
   | 'VIIRS_SNPP_SP';
 
+/**
+ * Widest window the FIRMS area API accepts. The published limit was 10; the
+ * live service rejects anything above 5 with `Invalid day range. Expects
+ * [1..5]` and HTTP 400. Catch-up after a long outage requested 8 and every
+ * sensor failed, so this is the single place the ceiling is stated.
+ */
+export const FIRMS_MAX_DAY_RANGE = 5;
+
 interface FetchAreaParams {
   bbox: { west: number; south: number; east: number; north: number };
   sensor?: FirmsSensor;
-  dayRange?: number; // 1-10
+  dayRange?: number; // 1-5, per the live FIRMS area API
   date?: string; // YYYY-MM-DD, empty for most recent
 }
 
@@ -76,8 +84,8 @@ export async function fetchFirmsArea(params: FetchAreaParams): Promise<FirmsRawR
     );
   }
 
-  if (dayRange < 1 || dayRange > 10) {
-    throw new Error('FIRMS day range must be between 1 and 10');
+  if (dayRange < 1 || dayRange > FIRMS_MAX_DAY_RANGE) {
+    throw new Error(`FIRMS day range must be between 1 and ${FIRMS_MAX_DAY_RANGE}`);
   }
 
   const area = `${bbox.west},${bbox.south},${bbox.east},${bbox.north}`;

@@ -156,5 +156,6 @@ API base come from `VITE_MAP_STYLE_URL` / `VITE_API_BASE_URL`.
   provenance claims in ML docstrings and `model_metadata.json`.
 - The backend burns FIRMS API quota every 5 minutes while running (limit is 5000 transactions per
   10 minutes per key). Stop it when you're done investigating.
-- FIRMS `dayRange` is capped at 1–10 by the API and validated client-side.
+- FIRMS `dayRange` is capped at 1–5 by the live API (it rejects more with HTTP 400) and validated
+  client-side against `FIRMS_MAX_DAY_RANGE` in `firms.client.ts`.
 - `stitchDash/` holds static HTML design mockups, not application code.

@@ -1,8 +1,8 @@
 import { IngestionLog } from './ingestion.model';
 import { ingestFirmsIndia } from './ingestion.service';
+import { FIRMS_MAX_DAY_RANGE } from './firms.client';
 
 const POLL_INTERVAL_MS = 5 * 60 * 1000;
-const FIRMS_MAX_DAY_RANGE = 10;
 
 /**
  * A restart mid-cycle silently skips a poll. On boot we look at how long it has
