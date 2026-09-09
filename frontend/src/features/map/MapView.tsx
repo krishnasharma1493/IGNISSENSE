@@ -319,11 +319,18 @@ export default function MapView({
             // neutral outline, and a white halo so it stays legible on dark
             // imagery. Form, not hue, carries the distinction.
             'circle-color': ['get', 'color'],
+            // A `zoom` expression is only legal at the top level of a paint
+            // property, so the interpolation wraps the per-feature `case`
+            // rather than sitting inside one. Nested the other way round,
+            // MapLibre rejects the whole layer at addLayer time — the dots
+            // never render and the click handler bound to this layer id never
+            // fires.
             'circle-stroke-width': [
-              'case',
-              ['boolean', ['get', 'unclassified'], false],
-              1.3,
-              ['interpolate', ['linear'], ['zoom'], 5, 0.4, 9, 1] as any,
+              'interpolate',
+              ['linear'],
+              ['zoom'],
+              5, ['case', ['boolean', ['get', 'unclassified'], false], 1.3, 0.4],
+              9, ['case', ['boolean', ['get', 'unclassified'], false], 1.3, 1],
             ],
             'circle-stroke-color': [
               'case',
