@@ -132,6 +132,17 @@ async function ingestMultiSensors(
       result.totalDuplicates += storedStats.duplicates;
       result.delhiNcrCount += storedStats.delhiNcr;
 
+      // A run that fetched its window but could not store or classify part of
+      // it is PARTIAL, not SUCCESS. The distinction is the difference between
+      // "this window is fully covered" and "some of it needs another pass".
+      const degradations: string[] = [];
+      if (storedStats.insertFailures > 0) {
+        degradations.push(`${storedStats.insertFailures} record(s) failed to store`);
+      }
+      if (storedStats.classificationFailures > 0) {
+        degradations.push(`${storedStats.classificationFailures} record(s) failed to classify`);
+      }
+
       // Log individual sensor run to IngestionLog
       await IngestionLog.create({
         source: 'NASA_FIRMS',
@@ -148,7 +159,8 @@ async function ingestMultiSensors(
         delhiNcrCount: storedStats.delhiNcr,
         retrievedAt: new Date(),
         durationMs: Date.now() - sensorStartTime,
-        status: 'SUCCESS',
+        status: degradations.length > 0 ? 'PARTIAL' : 'SUCCESS',
+        errorMessage: degradations.length > 0 ? degradations.join('; ') : undefined,
       });
     } catch (err: any) {
       console.error(`[FIRMS Ingestion] Failed sensor ${sensor}:`, err.message);
@@ -207,8 +219,17 @@ async function processAndStoreRecords(rawRecords: Array<FirmsRawRecord>): Promis
   stored: number;
   duplicates: number;
   delhiNcr: number;
+  insertFailures: number;
+  classificationFailures: number;
 }> {
-  const counts = { valid: 0, stored: 0, duplicates: 0, delhiNcr: 0 };
+  const counts = {
+    valid: 0,
+    stored: 0,
+    duplicates: 0,
+    delhiNcr: 0,
+    insertFailures: 0,
+    classificationFailures: 0,
+  };
   const validDocs: any[] = [];
   const seenKeys = new Set<string>();
 
@@ -243,18 +264,37 @@ async function processAndStoreRecords(rawRecords: Array<FirmsRawRecord>): Promis
       if (err.code === 11000 || err.message?.includes('duplicate key')) {
         counts.duplicates++;
       } else {
-        console.warn('[FIRMS Ingestion] Document insertion notice:', err.message);
+        // Not a duplicate: the record was fetched and accepted but never
+        // stored. Counted so the run is not logged as wholly successful.
+        counts.insertFailures++;
+        console.warn('[FIRMS Ingestion] Document insertion failed:', err.message);
       }
     }
   }
 
-  // Real ML Inference only on genuinely new observations
+  // Real ML Inference only on genuinely new observations.
+  //
+  // Each hotspot is classified in isolation. Under a bare Promise.all one
+  // rejection abandoned the rest of the chunk and every chunk after it, then
+  // propagated into the per-sensor catch — which wrote an IngestionLog row
+  // reading FAILED with recordsReceived 0 and recordsStored 0, for a run that
+  // had in fact fetched and stored its records. A row that cannot be classified
+  // is counted and left for the next pass to pick up.
   if (newlyCreatedHotspots.length > 0) {
     console.log(`[ML Pipeline] Executing feature extraction & ML classification on ${newlyCreatedHotspots.length} new observations...`);
     const chunkSize = 15;
     for (let i = 0; i < newlyCreatedHotspots.length; i += chunkSize) {
       const chunk = newlyCreatedHotspots.slice(i, i + chunkSize);
-      await Promise.all(chunk.map((h) => classifyHotspot(h)));
+      const settled = await Promise.allSettled(chunk.map((h) => classifyHotspot(h)));
+      for (const outcome of settled) {
+        if (outcome.status === 'rejected') {
+          counts.classificationFailures++;
+          console.warn(
+            '[ML Pipeline] Classification failed for one observation:',
+            outcome.reason?.message ?? outcome.reason
+          );
+        }
+      }
     }
   }
 
@@ -265,7 +305,7 @@ async function processAndStoreRecords(rawRecords: Array<FirmsRawRecord>): Promis
  * Get latest ingestion status for data freshness provenance
  */
 export async function getLatestIngestionStatus() {
-  const latestLog = await IngestionLog.findOne({ status: 'SUCCESS' })
+  const latestLog = await IngestionLog.findOne({ status: { $in: ['SUCCESS', 'PARTIAL'] } })
     .sort({ retrievedAt: -1 })
     .lean();
 

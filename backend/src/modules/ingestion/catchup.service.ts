@@ -22,7 +22,10 @@ export function computeCatchupDayRange(lastSuccessAt: Date | null, now: Date): n
 }
 
 export async function runCatchupIfNeeded(): Promise<void> {
-  const last = await IngestionLog.findOne({ status: 'SUCCESS' })
+  // PARTIAL counts as coverage: the window was fetched, even if a record in it
+  // failed to store or classify. Treating it as a gap would re-poll days of
+  // FIRMS quota to recover detections that are already stored.
+  const last = await IngestionLog.findOne({ status: { $in: ['SUCCESS', 'PARTIAL'] } })
     .sort({ retrievedAt: -1 })
     .select('retrievedAt')
     .lean();
