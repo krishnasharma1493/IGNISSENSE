@@ -102,6 +102,16 @@ const facility = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
+/** Enrichment in which every required spatial feature resolves. */
+const complete = () =>
+  enrichment({
+    nearestIndustrialFacility: facility({ subcategory: 'refinery', name: 'Mathura Refinery' }),
+    facilityType: 'refinery',
+    facilityDistanceMeters: 200,
+    inferredLandCover: 'built_up',
+    enrichmentStatus: 'enriched',
+  });
+
 beforeEach(() => {
   vi.clearAllMocks();
   hotspotFind.mockImplementation(() => findChain([]) as any);
@@ -218,6 +228,52 @@ describe('classifyHotspot — the completeness gate', () => {
     // Optional history is absent here and travels as an explicit null.
     expect(sent.historical_mean_frp).toBeNull();
     expect(sent.days_since_last_detection).toBeNull();
+  });
+
+  it('records unclassified_model_unavailable when the inference service does not answer', async () => {
+    enrichHotspot.mockResolvedValue(complete());
+    axiosPost.mockRejectedValue(new Error('connect ECONNREFUSED 127.0.0.1:8000'));
+
+    const doc: any = await classifyHotspot(hotspot());
+
+    expect(doc.pipelineStatus).toBe('unclassified_model_unavailable');
+    // The features resolved; it is the service that was missing, not an input.
+    expect(doc.featureCompleteness.unresolved).toEqual([]);
+    expect(doc.modelVersion).toMatch(/-OFFLINE$/);
+  });
+
+  it('invents no class, confidence or probability vector when the model is unreachable', async () => {
+    enrichHotspot.mockResolvedValue(complete());
+    axiosPost.mockRejectedValue(new Error('socket hang up'));
+
+    const doc: any = await classifyHotspot(hotspot());
+
+    expect(doc.predictedClass).toBeNull();
+    expect(doc.confidence).toBeNull();
+    expect(doc.classProbabilities).toBeNull();
+  });
+
+  it('treats an unusable model payload as no answer rather than as a verdict', async () => {
+    enrichHotspot.mockResolvedValue(complete());
+    axiosPost.mockResolvedValue({ data: { success: false, error: 'model not loaded' } });
+
+    const doc: any = await classifyHotspot(hotspot());
+
+    expect(doc.pipelineStatus).toBe('unclassified_model_unavailable');
+    expect(doc.predictedClass).toBeNull();
+  });
+
+  it('raises no alert on a detection the model never scored', async () => {
+    // 200 m from a refinery with a 120 MW detection: this clears the alert rule
+    // on every axis except the one that matters — there is no prediction.
+    enrichHotspot.mockResolvedValue(complete());
+    axiosPost.mockRejectedValue(new Error('connect ECONNREFUSED 127.0.0.1:8000'));
+
+    const doc: any = await classifyHotspot(hotspot());
+
+    expect(doc.anomalyScore).toBeGreaterThanOrEqual(0.65);
+    expect(doc.facilityDistanceMeters).toBeLessThanOrEqual(1500);
+    expect(alertUpsert).not.toHaveBeenCalled();
   });
 
   it('never puts a fabricated FRP in the evidence text', async () => {

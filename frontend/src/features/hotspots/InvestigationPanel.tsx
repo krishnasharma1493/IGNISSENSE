@@ -53,7 +53,6 @@ export default function InvestigationPanel({
   const { data: place } = useReverseGeocode(lat, lng);
 
   const predicted = classification?.predictedClass ?? null;
-  const isOffline = Boolean(classification?.modelVersion?.endsWith('-OFFLINE'));
 
   const nearestFacility =
     classification?.nearestFacilityId && typeof classification.nearestFacilityId === 'object'
@@ -95,7 +94,7 @@ export default function InvestigationPanel({
             {predicted ? <ClassChip cls={predicted} size="md" /> : null}
             {classification?.pipelineStatus === 'classified' ? (
               <CandidateChip />
-            ) : classification?.pipelineStatus === 'unclassified_insufficient_features' ? (
+            ) : classification ? (
               <NotClassifiedChip />
             ) : null}
           </div>
@@ -214,20 +213,17 @@ export default function InvestigationPanel({
                 Unresolved: {classification.featureCompleteness.unresolved.join(', ')}
               </p>
             </div>
+          ) : classification.pipelineStatus === 'unclassified_model_unavailable' ? (
+            <div className="inset-surface rounded-md px-3 py-2.5">
+              <p className="text-[12px] font-medium text-ink">Not classified</p>
+              <p className="mt-1 text-[11px] leading-relaxed text-ink-2">
+                Every required feature was measured, but the inference service did not answer, so
+                no prediction exists for this detection. It is re-classified on the next pipeline
+                run once the service is reachable.
+              </p>
+            </div>
           ) : (
             <>
-              {isOffline ? (
-                <p className="flex items-start gap-1.5 rounded-md border border-[rgba(138,97,0,0.26)] bg-warn-soft px-2.5 py-2 text-[11px] leading-relaxed text-warn">
-                  <span className="material-symbols-outlined mt-px shrink-0" style={{ fontSize: 13 }} aria-hidden="true">
-                    warning
-                  </span>
-                  <span>
-                    The inference service was unreachable. This is the pipeline&rsquo;s fallback
-                    result, not a model prediction — treat the class and probabilities as unset.
-                  </span>
-                </p>
-              ) : null}
-
               <div className="flex items-baseline justify-between gap-2">
                 <span className="text-[11px] text-ink-3">Predicted class confidence</span>
                 <span className="num text-[15px] font-semibold text-ink">

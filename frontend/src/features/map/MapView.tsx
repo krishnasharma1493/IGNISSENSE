@@ -75,11 +75,10 @@ export default function MapView({
       // with no FRP reports no FRP; nothing is substituted.
       features: hotspots.map((h) => {
         const c = classifications.get(h._id);
-        // No class was assigned: either the gate short-circuited inference for
-        // want of measured spatial features, or the row has not been through
-        // the pipeline yet. Neither is a model verdict.
-        const isUnclassified =
-          !c || c.pipelineStatus === 'unclassified_insufficient_features' || !c.predictedClass;
+        // No class was assigned: the gate short-circuited inference for want of
+        // measured spatial features, the inference service did not answer, or
+        // the row has not been through the pipeline yet. None is a model verdict.
+        const isUnclassified = !c || c.pipelineStatus !== 'classified' || !c.predictedClass;
         const cls = isUnclassified ? 'other_or_uncertain' : c!.predictedClass!;
         const classLabel = isUnclassified ? '' : CLASS_CONFIG[cls].label;
         // Saturated colour only ever encodes a real thermal-event class. An

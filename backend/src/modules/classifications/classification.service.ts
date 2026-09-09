@@ -3,6 +3,7 @@ import { Classification, IClassification, ClassificationClass } from './classifi
 import { Alert } from '../alerts/alert.model';
 import { extractFeaturesForHotspot, ExtractedFeatures, toCanonicalFeatureRecord } from './feature.extractor';
 import { REQUIRED_FEATURES, FEATURE_VERSION } from './featureContract';
+import type { PipelineStatus } from './classification.model';
 
 
 /**
@@ -94,6 +95,14 @@ function calculateAnomalyScore(
 import axios from 'axios';
 import { config } from '../../config';
 
+export interface InferenceOutcome {
+  predictedClass: ClassificationClass | null;
+  confidence: number | null;
+  classProbabilities: Record<ClassificationClass, number> | null;
+  modelVersion: string;
+  isModelLive: boolean;
+}
+
 /**
  * Grounded ML Inference Pipeline
  * Calls the trained XGBoost model microservice directly with the canonical feature vector.
@@ -101,16 +110,17 @@ import { config } from '../../config';
  * Takes the already-computed canonical values rather than recomputing them from
  * ExtractedFeatures — the caller (classifyHotspot) gates on feature completeness
  * before this is invoked, so it must have already produced the canonical record.
+ *
+ * When the service cannot be reached there is no prediction to report. The
+ * previous fallback returned `other_or_uncertain` at 0.50 with a full
+ * probability vector, which is a verdict the model never issued: the row was
+ * then stored as `classified`, counted in the class distribution, drawn on the
+ * map with a class colour, and could raise an "[AI CANDIDATE]" alert. Absence
+ * of inference is now reported as absence, exactly as an unresolvable feature is.
  */
 async function runModelInference(
   canonicalFeatures: Record<string, number>
-): Promise<{
-  predictedClass: ClassificationClass;
-  confidence: number;
-  classProbabilities: Record<ClassificationClass, number>;
-  modelVersion: string;
-  isModelLive: boolean;
-}> {
+): Promise<InferenceOutcome> {
   try {
     const response = await axios.post(
       `${config.modelServiceUrl}/predict`,
@@ -128,24 +138,15 @@ async function runModelInference(
         isModelLive: true,
       };
     }
+    console.warn('[ML Inference] Model service returned an unusable payload. Recording no prediction.');
   } catch (err: any) {
-    console.warn(`[ML Inference] Python model service notice (${err.message}). Defaulting to other_or_uncertain.`);
+    console.warn(`[ML Inference] Model service unreachable (${err.message}). Recording no prediction.`);
   }
 
-  // Graceful fallback when model service is offline: Never invent aggressive classifications
-  const defaultProbabilities: Record<ClassificationClass, number> = {
-    industrial_fire: 0.05,
-    gas_flare: 0.03,
-    wildfire: 0.05,
-    agricultural_burning: 0.07,
-    mining_thermal_activity: 0.05,
-    other_or_uncertain: 0.75,
-  };
-
   return {
-    predictedClass: 'other_or_uncertain',
-    confidence: 0.50,
-    classProbabilities: defaultProbabilities,
+    predictedClass: null,
+    confidence: null,
+    classProbabilities: null,
     modelVersion: `${CURRENT_MODEL_METADATA.version}-OFFLINE`,
     isModelLive: false,
   };
@@ -235,14 +236,8 @@ export async function classifyHotspot(hotspot: IHotspot): Promise<IClassificatio
     completenessRatio: Number(ratio.toFixed(3)),
   };
 
-  let inference: {
-    predictedClass: ClassificationClass | null;
-    confidence: number | null;
-    classProbabilities: Record<ClassificationClass, number> | null;
-    modelVersion: string;
-    isModelLive: boolean;
-  };
-  let pipelineStatus: 'classified' | 'unclassified_insufficient_features';
+  let inference: InferenceOutcome;
+  let pipelineStatus: PipelineStatus;
 
   if (canonical.unresolved.length > 0) {
     // No OSM coverage here. Saying "uncertain" would imply the model looked and
@@ -256,8 +251,11 @@ export async function classifyHotspot(hotspot: IHotspot): Promise<IClassificatio
       isModelLive: false,
     };
   } else {
-    pipelineStatus = 'classified';
     inference = await runModelInference(canonical.values as Record<string, number>);
+    // The features were complete and the call was made, so this row is not
+    // gated for want of inputs — the inference service simply did not answer.
+    // The two are distinct failures and are recorded distinctly.
+    pipelineStatus = inference.isModelLive ? 'classified' : 'unclassified_model_unavailable';
   }
 
   // 4. Generate grounded explainability evidence
@@ -273,7 +271,7 @@ export async function classifyHotspot(hotspot: IHotspot): Promise<IClassificatio
     { hotspotId: hotspot._id },
     {
       hotspotId: hotspot._id,
-      predictedClass: pipelineStatus === 'classified' ? inference.predictedClass : null,
+      predictedClass: inference.predictedClass,
       confidence: inference.confidence,
       classProbabilities: inference.classProbabilities,
       persistenceScore,
@@ -293,7 +291,9 @@ export async function classifyHotspot(hotspot: IHotspot): Promise<IClassificatio
 
 
   // 6. Deterministic Alert Generation: Anomaly Score >= 0.65 AND within 1.5 km of OSM Industrial Facility
-  // An unclassified detection never raises an alert — there is no classified signature to assert.
+  // An unclassified detection never raises an alert — there is no classified
+  // signature to assert. That covers both the feature gate and an unreachable
+  // inference service; neither produced a class to name in the alert text.
   if (
     pipelineStatus === 'classified' &&
     anomalyScore !== null &&
@@ -302,6 +302,7 @@ export async function classifyHotspot(hotspot: IHotspot): Promise<IClassificatio
     features.facilityDistanceMeters <= 1500
   ) {
     const severity = anomalyScore >= 0.80 ? 'critical' : anomalyScore >= 0.65 ? 'high' : 'medium';
+    // `classified` guarantees a non-null class; the fallback keeps the type honest.
     const predictedClassLabel = (inference.predictedClass ?? 'other_or_uncertain').replace(/_/g, ' ');
     const frpClause =
       features.frp !== null ? ` FRP: ${features.frp.toFixed(1)} MW.` : ' FRP not reported.';

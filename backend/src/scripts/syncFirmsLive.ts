@@ -68,6 +68,8 @@ async function runLiveSync() {
           ? c.featureCompleteness.unresolved.join(', ')
           : 'unknown';
         console.log(`\n  [${i + 1}] Class: UNCLASSIFIED (insufficient features) — unresolved: ${unresolved}`);
+      } else if (c.pipelineStatus === 'unclassified_model_unavailable') {
+        console.log(`\n  [${i + 1}] Class: UNCLASSIFIED (inference service unreachable)`);
       } else {
         const predictedClass = c.predictedClass ? c.predictedClass.toUpperCase() : 'UNKNOWN';
         const confidencePct = typeof c.confidence === 'number' ? `${(c.confidence * 100).toFixed(0)}%` : 'N/A';

@@ -30,10 +30,13 @@ analyticsRoutes.get('/summary', async (req: Request, res: Response) => {
       });
     }
 
-    // Detections gated out before inference for lack of resolvable features.
-    const unclassified = await Classification.countDocuments({
-      pipelineStatus: 'unclassified_insufficient_features',
-    });
+    // Detections with no prediction, split by why inference produced none:
+    // features that could not be measured, versus a service that did not answer.
+    const [insufficientFeatures, modelUnavailable] = await Promise.all([
+      Classification.countDocuments({ pipelineStatus: 'unclassified_insufficient_features' }),
+      Classification.countDocuments({ pipelineStatus: 'unclassified_model_unavailable' }),
+    ]);
+    const unclassified = insufficientFeatures + modelUnavailable;
 
     // Persistent sources (persistence >= 0.50)
     const persistentSources = await Classification.countDocuments({
@@ -73,6 +76,10 @@ analyticsRoutes.get('/summary', async (req: Request, res: Response) => {
         persistentSources,
         anomalousSources,
         unclassified,
+        unclassifiedBreakdown: {
+          insufficientFeatures,
+          modelUnavailable,
+        },
         openAlerts,
         regions: {
           delhi_ncr: delhiNcrHotspots,

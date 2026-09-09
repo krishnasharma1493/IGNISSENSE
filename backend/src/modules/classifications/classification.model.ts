@@ -18,6 +18,31 @@ export const CLASSIFICATION_CLASSES = [
 
 export type ClassificationClass = typeof CLASSIFICATION_CLASSES[number];
 
+/**
+ * Outcome of a classification attempt.
+ *
+ * - `classified` — every required feature resolved and the model answered.
+ * - `unclassified_insufficient_features` — a required feature could not be
+ *   measured (typically no OSM coverage), so no call was made.
+ * - `unclassified_model_unavailable` — the features were complete, the call was
+ *   made, and the inference service did not answer. No prediction exists.
+ *
+ * Only `classified` rows carry a prediction. The other two exist so that a
+ * missing verdict is never displayed, counted, or alerted on as if it were one.
+ */
+export const PIPELINE_STATUSES = [
+  'classified',
+  'unclassified_insufficient_features',
+  'unclassified_model_unavailable',
+] as const;
+
+export type PipelineStatus = typeof PIPELINE_STATUSES[number];
+
+/** Statuses in which no inference result exists. */
+export const UNCLASSIFIED_STATUSES = PIPELINE_STATUSES.filter(
+  (s): s is Exclude<PipelineStatus, 'classified'> => s !== 'classified'
+);
+
 export interface IClassification extends Document {
   hotspotId: Types.ObjectId;
   predictedClass: ClassificationClass | null;
@@ -31,7 +56,7 @@ export interface IClassification extends Document {
   landCover: string; // 'forest', 'cropland', 'built_up', 'bare', 'water', 'other'
   explanation: string[];
   modelVersion: string;
-  pipelineStatus: 'classified' | 'unclassified_insufficient_features';
+  pipelineStatus: PipelineStatus;
   featureVersion: string;
   predictedAt: Date;
   featureCompleteness: {
@@ -105,7 +130,7 @@ const classificationSchema = new Schema<IClassification>(
     pipelineStatus: {
       type: String,
       required: true,
-      enum: ['classified', 'unclassified_insufficient_features'],
+      enum: [...PIPELINE_STATUSES],
       default: 'classified',
     },
     featureVersion: { type: String, required: true },

@@ -87,7 +87,16 @@ export interface Classification {
   explanation: string[];
   modelVersion: string;
   createdAt: string;
-  pipelineStatus: 'classified' | 'unclassified_insufficient_features';
+  /**
+   * `classified` is the only status carrying a prediction. A required feature
+   * that could not be measured and an inference service that did not answer are
+   * both recorded as unclassified, and are distinguished so the panel can say
+   * which one happened.
+   */
+  pipelineStatus:
+    | 'classified'
+    | 'unclassified_insufficient_features'
+    | 'unclassified_model_unavailable';
   featureVersion: string;
   predictedAt: string;
   featureCompleteness: {

@@ -149,9 +149,7 @@ export default function LayersDrawer(props: LayersDrawerProps) {
   // the largest group on the map has no entry explaining its mark.
   const unclassifiedCount = hotspots.reduce((n, h) => {
     const c = classifications.get(h._id);
-    return !c || c.pipelineStatus === 'unclassified_insufficient_features' || !c.predictedClass
-      ? n + 1
-      : n;
+    return !c || c.pipelineStatus !== 'classified' || !c.predictedClass ? n + 1 : n;
   }, 0);
 
   if (!open) {
