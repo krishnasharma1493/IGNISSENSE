@@ -2,6 +2,7 @@ import app from './app';
 import { config } from './config';
 import { connectDatabase } from './config/database';
 import { ingestFirmsDelhiNcr, ingestFirmsIndia } from './modules/ingestion/ingestion.service';
+import { serializeRuns } from './modules/ingestion/scheduler';
 
 async function startServer() {
   // Start Express immediately
@@ -18,17 +19,26 @@ async function startServer() {
     // Schedule automated periodic NASA FIRMS ingestion + ML classification loop
     console.log('[Scheduler] Initializing NASA FIRMS Real-Time Ingestion & ML Classifier Loop...');
 
-    const runLiveSyncLoop = async () => {
-      try {
-        console.log('[Live NASA FIRMS] Checking for latest satellite passes (VIIRS/MODIS)...');
-        const syncResult = await ingestFirmsIndia({ dayRange: 2 });
-        console.log(
-          `[Live NASA FIRMS + ML] Synced & Classified: ${syncResult.totalStored} new fire records, ${syncResult.totalDuplicates} existing.`
-        );
-      } catch (err: any) {
-        console.warn('[Live NASA FIRMS] Periodic sync notice:', err.message);
-      }
-    };
+    // Cycles can outlast their interval; serializeRuns drops a tick rather than
+    // stacking a second India-wide pull on top of the one already running.
+    const runLiveSyncLoop = serializeRuns(
+      async () => {
+        try {
+          console.log('[Live NASA FIRMS] Checking for latest satellite passes (VIIRS/MODIS)...');
+          const syncResult = await ingestFirmsIndia({ dayRange: 2 });
+          console.log(
+            `[Live NASA FIRMS + ML] Synced & Classified: ${syncResult.totalStored} new fire records, ${syncResult.totalDuplicates} existing.`
+          );
+        } catch (err: any) {
+          console.warn('[Live NASA FIRMS] Periodic sync notice:', err.message);
+        }
+      },
+      () =>
+        console.warn(
+          '[Live NASA FIRMS] Previous cycle still running; skipping this tick. ' +
+            'The in-flight run already covers this window.'
+        )
+    );
 
     // Run first sync 5 seconds after boot, then every 5 minutes.
     // Before the first sync, recover any FIRMS polls silently skipped by a
