@@ -71,6 +71,9 @@ export async function ingestFirmsArea(
 
 export interface IngestionProvenanceState {
   firmsConnected: boolean;
+  /** When a poll last ran, whether or not any sensor answered. */
+  lastPollAttemptAt: Date | null;
+  /** When a poll last returned data from at least one sensor. */
   lastSuccessfulPoll: Date | null;
   lastNewObservationAt: Date | null;
   lastProcessedObservationAt: Date | null;
@@ -81,6 +84,7 @@ export interface IngestionProvenanceState {
 
 export const liveIngestionState: IngestionProvenanceState = {
   firmsConnected: false,
+  lastPollAttemptAt: null,
   lastSuccessfulPoll: null,
   lastNewObservationAt: null,
   lastProcessedObservationAt: null,
@@ -185,18 +189,34 @@ async function ingestMultiSensors(
     }
   }
 
-  // Update live system provenance
+  // Update live system provenance.
+  //
+  // A cycle in which every sensor query failed is not a successful poll. It
+  // previously stamped lastSuccessfulPoll with the current time and reported
+  // "No new FIRMS observations since last poll" — a total outage reading as a
+  // quiet, healthy pipeline, with a freshness clock in the header that kept
+  // advancing while nothing was being fetched.
+  const now = new Date();
+  liveIngestionState.lastPollAttemptAt = now;
   liveIngestionState.firmsConnected = anySensorSucceeded;
-  liveIngestionState.lastSuccessfulPoll = new Date();
-  liveIngestionState.lastProcessedObservationAt = new Date();
-  liveIngestionState.newObservationsLastPoll = result.totalStored;
   liveIngestionState.sensorsQueried = sensors;
 
-  if (result.totalStored > 0) {
-    liveIngestionState.lastNewObservationAt = new Date();
-    liveIngestionState.pollStatusMessage = `${result.totalStored} new FIRMS observations ingested and classified`;
+  if (!anySensorSucceeded) {
+    liveIngestionState.newObservationsLastPoll = 0;
+    liveIngestionState.pollStatusMessage =
+      `No sensor answered this cycle (${sensors.join(', ')}). ` +
+      'Displayed detections are from the last successful poll.';
   } else {
-    liveIngestionState.pollStatusMessage = 'No new FIRMS observations since last poll';
+    liveIngestionState.lastSuccessfulPoll = now;
+    liveIngestionState.lastProcessedObservationAt = now;
+    liveIngestionState.newObservationsLastPoll = result.totalStored;
+
+    if (result.totalStored > 0) {
+      liveIngestionState.lastNewObservationAt = now;
+      liveIngestionState.pollStatusMessage = `${result.totalStored} new FIRMS observations ingested and classified`;
+    } else {
+      liveIngestionState.pollStatusMessage = 'No new FIRMS observations since last poll';
+    }
   }
 
   console.log(
@@ -309,12 +329,19 @@ export async function getLatestIngestionStatus() {
     .sort({ retrievedAt: -1 })
     .lean();
 
+  const lastRun = await IngestionLog.findOne()
+    .sort({ retrievedAt: -1 })
+    .select('status retrievedAt')
+    .lean();
+
   const totalLogs = await IngestionLog.countDocuments();
   const latestHotspot = await Hotspot.findOne().sort({ detectedAt: -1 }).select('detectedAt').lean();
 
   return {
     ...liveIngestionState,
     latestLog,
+    lastRunStatus: lastRun?.status ?? null,
+    lastRunAt: lastRun?.retrievedAt ?? null,
     totalLogs,
     latestDetectedAt: latestHotspot?.detectedAt || null,
   };

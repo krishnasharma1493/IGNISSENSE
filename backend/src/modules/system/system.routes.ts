@@ -50,9 +50,22 @@ systemRoutes.get('/status', async (_req: Request, res: Response) => {
       OsmFeature.countDocuments(),
     ]);
 
-    // 5. Build status response
+    // 5. Build status response.
+    //
+    // `firmsConnected` reports whether the last poll actually reached FIRMS.
+    // It previously fell back to `totalLogs > 0`, which counts FAILED rows too,
+    // so any system that had ever attempted a poll reported connected for the
+    // rest of its life — including through a total outage. Within a process
+    // that has polled, the in-process result is authoritative; across a restart
+    // the status of the most recent run stands in until the first poll lands.
+    const firmsReachable =
+      ingestionStatus.lastPollAttemptAt !== null
+        ? ingestionStatus.firmsConnected
+        : ingestionStatus.lastRunStatus !== null && ingestionStatus.lastRunStatus !== 'FAILED';
+
     const statusPayload = {
-      firmsConnected: Boolean(config.firms.apiKey && (ingestionStatus.firmsConnected || ingestionStatus.totalLogs > 0)),
+      firmsConnected: Boolean(config.firms.apiKey) && firmsReachable,
+      lastPollAttemptAt: ingestionStatus.lastPollAttemptAt ?? ingestionStatus.lastRunAt,
       lastSuccessfulPoll: ingestionStatus.lastSuccessfulPoll,
       lastNewObservationAt: ingestionStatus.lastNewObservationAt || ingestionStatus.latestDetectedAt,
       lastProcessedObservationAt: ingestionStatus.lastProcessedObservationAt,

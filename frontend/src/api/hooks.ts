@@ -221,6 +221,9 @@ export function useIngestionStatus() {
 
 export interface SystemStatusData {
   firmsConnected: boolean;
+  /** When a poll last ran, whether or not any sensor answered. */
+  lastPollAttemptAt: string | null;
+  /** When a poll last returned data. Does not advance during an outage. */
   lastSuccessfulPoll: string | null;
   lastNewObservationAt: string | null;
   lastProcessedObservationAt: string | null;
