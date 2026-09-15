@@ -5,6 +5,7 @@ import type { PageTab } from './components/AppBar';
 import Panel from './components/ui/Panel';
 import MapPage from './pages/MapPage';
 import DashboardPage from './features/dashboard/DashboardPage';
+import AnalyticsPage from './features/analytics/AnalyticsPage';
 import AlertsPage from './features/alerts/AlertsPage';
 import { useHotspots } from './api/hooks';
 import { SearchProvider } from './context/SearchContext';
@@ -129,13 +130,10 @@ function AppContent() {
 
       {activeTab !== 'map' ? (
         <div className="absolute inset-0 z-30 overflow-y-auto bg-canvas px-6 pb-8 pt-[68px]">
-          {activeTab === 'dashboard' || activeTab === 'analytics' ? (
-            <DashboardPage
-              variant={activeTab}
-              onInvestigate={investigate}
-              onOpenMap={() => setActiveTab('map')}
-            />
+          {activeTab === 'dashboard' ? (
+            <DashboardPage onInvestigate={investigate} onOpenMap={() => setActiveTab('map')} />
           ) : null}
+          {activeTab === 'analytics' ? <AnalyticsPage onOpenMap={() => setActiveTab('map')} /> : null}
           {activeTab === 'alerts' ? <AlertsPage onInvestigate={investigate} /> : null}
         </div>
       ) : null}

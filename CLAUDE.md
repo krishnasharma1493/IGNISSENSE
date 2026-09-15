@@ -112,10 +112,19 @@ features are zero-filled except `days_since_last_detection`, which passes throug
 
 `osmExtractor.ts` splits India into 3°×3° tiles (`DEFAULT_TILE_SIZE = 3.0`, ids like `tile_27_77`)
 and pulls them from Overpass one at a time, tracking each in the `osmtiles` collection
-(pending/completed/failed) so extraction resumes. Most tiles are still pending, so
-`enrichHotspot` returns `enrichmentStatus: 'no_osm_coverage'` for the majority of India — which the
-extractor then converts to `facility_distance_m: 25000, facility_type_encoded: 0,
-landcover_encoded: 5`. Any analysis of classification output has to account for this.
+(pending/completed/failed) so extraction resumes. Only 4 of 110 tiles were ever pulled that way, so
+`osm_features` covered a sliver of India and most detections resolved no facility within 25 km. The
+extractor passes that absence through as null, and the completeness gate records the row as
+`unclassified_insufficient_features` without calling the model.
+
+The collection was then filled India-wide from the Geofabrik extract (341k features):
+`ml/src/features/osm_elements.py` applies the same tag filter as `buildOverpassQuery` with Overpass
+`out center` geometry, and `src/scripts/importOsmElements.ts` loads it through `normalizeOsmElement`
+with the extractor's upsert-by-`sourceId`, so a later Overpass run updates rather than duplicates.
+`osmtiles` still shows those tiles as pending — it tracks Overpass progress, not this import.
+Gated rows are not re-evaluated on their own; after any OSM change run
+`src/scripts/reclassifyGated.ts` (`--include-legacy --stale-model` also re-runs rows from older
+model versions). A detection with no mapped facility within 25 km remains unclassified by design.
 
 `taxonomy.ts` is the single source of truth mapping raw OSM tags to the bounded
 category/subcategory taxonomy; both the extractor and the enrichment service import it.

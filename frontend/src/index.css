@@ -184,6 +184,123 @@ body {
   font-weight: 600;
 }
 
+/* ============================================================================
+   Top dock — the app bar (components/AppBar.tsx)
+
+   The dock is the chrome level of the material with a lighter 12px blur: it
+   sits directly over the map and must not smear the imagery behind it into a
+   grey band.
+
+   Each dock item is a fixed layout box holding two layers: `.dock-pill` (the
+   background) and `.dock-content` (icon, label, badge). Only the pill grows.
+   components/dock/useProximitySpring.ts writes `--dock-g` (0‥1) plus the two
+   geometric bounds `--dock-grow-x` / `--dock-grow-y`; the pill widens by at most
+   half the gap to its neighbour and deepens by at most the room left inside the
+   bar, so pills never overlap each other or leave the dock. Content never
+   scales and never moves sideways.
+   ========================================================================== */
+
+.glass-dock {
+  background: rgba(252, 253, 254, 0.86);
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  border: 1px solid var(--color-hairline);
+  box-shadow:
+    0 1px 2px rgba(15, 18, 22, 0.04),
+    0 8px 24px -8px rgba(15, 18, 22, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+}
+
+/* The item box itself stays still. `contain: layout` keeps the pill's growth from
+   ever reaching sibling layout; `isolation` keeps the pill's z-index local. */
+.dock-item {
+  position: relative;
+  isolation: isolate;
+  contain: layout;
+}
+
+/* The pill carries every visual state, so the button's own .ctl fills are off. */
+.dock-item.ctl,
+.dock-item.ctl:hover,
+.dock-item.ctl[data-active="true"] {
+  background: transparent;
+  border-color: transparent;
+}
+
+.dock-pill {
+  position: absolute;
+  z-index: -1;
+  top: 0;
+  left: calc(var(--dock-g, 0) * var(--dock-grow-x, 0px) * -1);
+  right: calc(var(--dock-g, 0) * var(--dock-grow-x, 0px) * -1);
+  bottom: calc(var(--dock-g, 0) * var(--dock-grow-y, 0px) * -1);
+  border-radius: var(--radius-md);
+  background: rgba(15, 18, 22, 0.06);
+  opacity: var(--dock-g, 0);
+  pointer-events: none;
+}
+
+/* Hover feedback that does not depend on the spring (touch, reduced motion). */
+.dock-item:hover .dock-pill {
+  opacity: 1;
+}
+
+/* Content: never scaled, never shifted sideways. It drops by half the pill's
+   downward growth so it stays centred in the grown pill. */
+.dock-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transform: translateY(calc(var(--dock-g, 0) * var(--dock-grow-y, 0px) * 0.5));
+}
+
+/* Active section: a raised paper tile with an accent dot, rather than the
+   accent-tinted fill other pressed controls use. */
+.dock-tab.ctl[data-active="true"] {
+  color: var(--color-ink);
+}
+
+.dock-tab[data-active="true"] .dock-pill {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow:
+    0 0 0 1px var(--color-hairline),
+    0 1px 2px rgba(15, 18, 22, 0.08),
+    0 2px 6px -2px rgba(15, 18, 22, 0.10);
+}
+
+.dock-tab[data-active="true"] .dock-pill::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 2px;
+  width: 4px;
+  height: 4px;
+  margin-left: -2px;
+  border-radius: 9999px;
+  background: var(--color-accent);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .glass-dock {
+    background: #fcfdfe;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .glass-dock {
+    background: #ffffff;
+    border-color: var(--color-hairline-strong);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  .dock-tab[data-active="true"] {
+    border-color: var(--color-accent);
+  }
+}
+
 /* Visible focus on every interactive element. The previous build had no focus
    indicator at all, which made the whole app keyboard-unusable. */
 :where(a, button, input, select, textarea, [tabindex]):focus-visible {

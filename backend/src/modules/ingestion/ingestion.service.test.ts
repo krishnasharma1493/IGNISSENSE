@@ -124,6 +124,27 @@ describe('ingestMultiSensors — a sensor run reports what actually happened', (
     expect(log.recordsStored).toBe(1);
   });
 
+  it('does not store detections outside India that the FIRMS rectangle returns', async () => {
+    fetchFirmsArea.mockResolvedValue([
+      row(), // Delhi
+      row({ latitude: '6.93', longitude: '79.86' }), // Colombo, Sri Lanka
+      row({ latitude: '31.52', longitude: '74.36' }), // Lahore, Pakistan
+    ]);
+
+    const result = await ingestFirmsArea(bbox, { sensors: ['VIIRS_SNPP_NRT'] });
+
+    expect(hotspotCreate).toHaveBeenCalledTimes(1);
+    expect(classifyHotspot).toHaveBeenCalledTimes(1);
+    expect(result.totalFetched).toBe(3);
+    expect(result.totalOutsideIndia).toBe(2);
+    expect(result.totalStored).toBe(1);
+    const [log] = logRows();
+    expect(log.recordsReceived).toBe(3);
+    expect(log.recordsStored).toBe(1);
+    expect(log.recordsRejected).toBe(2);
+    expect(log.status).toBe('SUCCESS');
+  });
+
   it('marks a run PARTIAL when a record cannot be stored for a non-duplicate reason', async () => {
     fetchFirmsArea.mockResolvedValue([row(), row({ latitude: '28.72' })]);
     hotspotCreate

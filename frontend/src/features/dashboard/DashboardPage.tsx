@@ -5,76 +5,25 @@ import { useAnalyticsSummary, useHotspots, useTemporalTrend, useSystemStatus } f
 import { CLASS_CONFIG, CLASSIFICATION_CLASSES } from '../../types';
 import type { Classification, ClassificationClass } from '../../types';
 import { ClassChip } from '../../components/ui/Chip';
-import { ProvenanceTag } from '../../components/ui/Provenance';
+import { Card, Stat } from '../../components/ui/Card';
 import { formatUtc } from '../../lib/format';
 import TrendChart from './TrendChart';
 
 interface DashboardPageProps {
-  variant: 'dashboard' | 'analytics';
   onInvestigate: (hotspotId: string) => void;
   onOpenMap: () => void;
 }
 
-function Stat({
-  label,
-  value,
-  tone,
-  hint,
-}: {
-  label: string;
-  value: number | string | null;
-  tone?: string;
-  hint?: string;
-}) {
-  return (
-    <div className="rounded-lg border border-hairline bg-white/60 px-3 py-2.5">
-      <div className="text-[10px] uppercase tracking-[0.05em] text-ink-3">{label}</div>
-      <div
-        className="num mt-0.5 text-[20px] font-semibold leading-none"
-        style={tone ? { color: tone } : undefined}
-      >
-        {value === null || value === undefined ? <span className="text-ink-4">—</span> : value}
-      </div>
-      {hint ? <div className="mt-1 text-[10px] text-ink-3">{hint}</div> : null}
-    </div>
-  );
-}
-
-function Card({
-  title,
-  provenance,
-  meta,
-  children,
-}: {
-  title: string;
-  provenance: 'observed' | 'model' | 'heuristic' | 'context';
-  meta?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="flex flex-col rounded-lg border border-hairline bg-white/60">
-      <header className="flex items-center justify-between gap-3 border-b border-hairline px-3.5 py-2.5">
-        <div className="flex min-w-0 items-center gap-2">
-          <h2 className="truncate text-[12px] font-semibold text-ink">{title}</h2>
-          <ProvenanceTag kind={provenance} />
-        </div>
-        {meta ? <span className="num shrink-0 text-[11px] text-ink-3">{meta}</span> : null}
-      </header>
-      <div className="flex-1 p-3.5">{children}</div>
-    </section>
-  );
-}
-
-export default function DashboardPage({ variant, onInvestigate, onOpenMap }: DashboardPageProps) {
-  const isAnalytics = variant === 'analytics';
+/** The live operational view: what was detected, how it was classified, what came in last. */
+export default function DashboardPage({ onInvestigate, onOpenMap }: DashboardPageProps) {
   const { data: analytics, isLoading } = useAnalyticsSummary();
   const { data: status } = useSystemStatus();
   const { data: hotspotsData } = useHotspots({ limit: '100' });
-  const { data: trend } = useTemporalTrend(isAnalytics ? 14 : 7);
+  const { data: trend, isLoading: trendLoading } = useTemporalTrend(7);
 
   const hotspots = hotspotsData?.hotspots ?? [];
 
-  const { data: classificationsData } = useQuery({
+  const { data: classificationsData, isLoading: classificationsLoading } = useQuery({
     queryKey: ['all-classifications'],
     queryFn: async () => {
       const res = await api.get('/classifications', { params: { limit: '5000' } });
@@ -111,13 +60,9 @@ export default function DashboardPage({ variant, onInvestigate, onOpenMap }: Das
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-[22px] font-semibold tracking-tight text-ink">
-            {isAnalytics ? 'Analytics' : 'Thermal overview'}
-          </h1>
+          <h1 className="text-[22px] font-semibold tracking-tight text-ink">Thermal overview</h1>
           <p className="mt-0.5 text-[12px] text-ink-2">
-            {isAnalytics
-              ? 'Detection volume and radiative power over time, aggregated across India.'
-              : 'Satellite thermal detections across India, classified and enriched with spatial context.'}
+            Satellite thermal detections across India, classified and enriched with spatial context.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -167,19 +112,25 @@ export default function DashboardPage({ variant, onInvestigate, onOpenMap }: Das
       </div>
 
       {/* ── Body ───────────────────────────────────────────────────────────── */}
-      <div className={`grid gap-3 ${isAnalytics ? 'lg:grid-cols-3' : 'lg:grid-cols-2'}`}>
-        <div className={isAnalytics ? 'lg:col-span-2' : ''}>
-          <Card
-            title={`Detection volume · ${isAnalytics ? 14 : 7} days`}
-            provenance="observed"
-            meta={points.length ? `${points.reduce((s, p) => s + p.count, 0).toLocaleString()} detections` : undefined}
-          >
-            <TrendChart points={points} showFrp={isAnalytics} />
-          </Card>
-        </div>
+      <div className="grid gap-3 lg:grid-cols-2">
+        <Card
+          title="Detection volume · 7 days"
+          provenance="observed"
+          meta={points.length ? `${points.reduce((s, p) => s + p.count, 0).toLocaleString()} detections` : undefined}
+        >
+          {trendLoading ? (
+            <div className="grid h-[180px] place-items-center">
+              <p className="text-[12px] text-ink-3">Loading…</p>
+            </div>
+          ) : (
+            <TrendChart points={points} />
+          )}
+        </Card>
 
         <Card title="Class distribution" provenance="model" meta={total ? `${total.toLocaleString()} classified` : undefined}>
-          {!total ? (
+          {isLoading ? (
+            <p className="text-[12px] text-ink-3">Loading…</p>
+          ) : !total ? (
             <p className="text-[12px] text-ink-3">No classifications recorded yet.</p>
           ) : (
             <ul className="flex flex-col gap-2.5">
@@ -273,6 +224,10 @@ export default function DashboardPage({ variant, onInvestigate, onOpenMap }: Das
                       <td className="px-3.5 py-1.5 text-right">
                         {c?.predictedClass ? (
                           <ClassChip cls={c.predictedClass} icon={false} />
+                        ) : classificationsLoading ? (
+                          // Classifications arrive in a separate request. Until they do, the
+                          // row's class is unknown — not "unclassified".
+                          <span className="text-[11px] text-ink-4">Loading…</span>
                         ) : (
                           <span className="text-[11px] text-ink-4">Unclassified</span>
                         )}

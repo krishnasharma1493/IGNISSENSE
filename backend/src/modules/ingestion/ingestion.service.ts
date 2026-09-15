@@ -2,6 +2,7 @@ import { Hotspot } from '../hotspots/hotspot.model';
 import { fetchFirmsArea, normalizeFirmsRecord, FirmsSensor, FirmsRawRecord } from './firms.client';
 import { classifyHotspot } from '../classifications/classification.service';
 import { IngestionLog } from './ingestion.model';
+import { isInsideIndia } from './indiaBoundary';
 import { config } from '../../config';
 
 export interface IngestionResult {
@@ -9,6 +10,8 @@ export interface IngestionResult {
   totalValid: number;
   totalStored: number;
   totalDuplicates: number;
+  /** Detections inside the FIRMS query rectangle but outside India's boundary; not stored. */
+  totalOutsideIndia: number;
   delhiNcrCount: number;
   sensorsQueried: string[];
   retrievedAt: Date;
@@ -38,6 +41,9 @@ export async function ingestFirmsDelhiNcr(
 
 /**
  * Ingest live real-time FIRMS data across all of India (parent geography).
+ *
+ * FIRMS only accepts a rectangle, and this one also covers neighbouring
+ * countries; processAndStoreRecords keeps only detections inside India's boundary.
  */
 export async function ingestFirmsIndia(
   options: {
@@ -109,6 +115,7 @@ async function ingestMultiSensors(
     totalValid: 0,
     totalStored: 0,
     totalDuplicates: 0,
+    totalOutsideIndia: 0,
     delhiNcrCount: 0,
     sensorsQueried: sensors,
     retrievedAt: new Date(),
@@ -134,6 +141,7 @@ async function ingestMultiSensors(
       result.totalValid += storedStats.valid;
       result.totalStored += storedStats.stored;
       result.totalDuplicates += storedStats.duplicates;
+      result.totalOutsideIndia += storedStats.outsideIndia;
       result.delhiNcrCount += storedStats.delhiNcr;
 
       // A run that fetched its window but could not store or classify part of
@@ -147,7 +155,8 @@ async function ingestMultiSensors(
         degradations.push(`${storedStats.classificationFailures} record(s) failed to classify`);
       }
 
-      // Log individual sensor run to IngestionLog
+      // Log individual sensor run to IngestionLog. recordsRejected includes
+      // detections outside India's boundary, which are filtered by design.
       await IngestionLog.create({
         source: 'NASA_FIRMS',
         product: sensor,
@@ -221,7 +230,7 @@ async function ingestMultiSensors(
 
   console.log(
     `[FIRMS Ingestion Complete] ${liveIngestionState.pollStatusMessage}. ` +
-      `Fetched: ${result.totalFetched}, Valid: ${result.totalValid}, ` +
+      `Fetched: ${result.totalFetched}, Outside India (not stored): ${result.totalOutsideIndia}, Valid: ${result.totalValid}, ` +
       `New Stored: ${result.totalStored}, Duplicates Skipped: ${result.totalDuplicates}, Delhi NCR: ${result.delhiNcrCount} (${Date.now() - startTime}ms)`
   );
 
@@ -238,6 +247,7 @@ async function processAndStoreRecords(rawRecords: Array<FirmsRawRecord>): Promis
   valid: number;
   stored: number;
   duplicates: number;
+  outsideIndia: number;
   delhiNcr: number;
   insertFailures: number;
   classificationFailures: number;
@@ -246,6 +256,7 @@ async function processAndStoreRecords(rawRecords: Array<FirmsRawRecord>): Promis
     valid: 0,
     stored: 0,
     duplicates: 0,
+    outsideIndia: 0,
     delhiNcr: 0,
     insertFailures: 0,
     classificationFailures: 0,
@@ -256,6 +267,15 @@ async function processAndStoreRecords(rawRecords: Array<FirmsRawRecord>): Promis
   for (const raw of rawRecords) {
     const normalized = normalizeFirmsRecord(raw);
     if (!normalized) continue;
+
+    // The FIRMS query is a rectangle; keep only detections inside India's
+    // boundary. Neighbouring-country fires have no OSM context and are outside
+    // the problem statement's scope.
+    const [lon, lat] = normalized.location.coordinates;
+    if (!isInsideIndia(lon, lat)) {
+      counts.outsideIndia++;
+      continue;
+    }
 
     // Deduplicate in batch using deterministic key: [lon, lat, timestamp, satellite, instrument]
     const key = `${normalized.location.coordinates[0].toFixed(5)}_${normalized.location.coordinates[1].toFixed(5)}_${normalized.detectedAt.getTime()}_${normalized.satellite}_${normalized.instrument}`;
@@ -346,4 +366,3 @@ export async function getLatestIngestionStatus() {
     latestDetectedAt: latestHotspot?.detectedAt || null,
   };
 }
-

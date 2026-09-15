@@ -6,6 +6,7 @@ import { useSearch, parseCoordinates } from '../context/SearchContext';
 import type { SearchResultItem } from '../context/SearchContext';
 import type { Classification } from '../types';
 import Panel from './ui/Panel';
+import { useProximitySpring } from './dock/useProximitySpring';
 
 export type PageTab = 'map' | 'dashboard' | 'alerts' | 'analytics';
 
@@ -23,9 +24,21 @@ interface AppBarProps {
   onExport: () => void;
 }
 
+/** The background pill a dock item grows; purely decorative. */
+function DockPill() {
+  return <span className="dock-pill" aria-hidden="true" />;
+}
+
 /**
- * The single chrome surface. Brand, section navigation, search, pipeline state
- * and export all live here, so the map keeps the whole viewport beneath it.
+ * The single chrome surface, rendered as a top dock. Brand, section navigation,
+ * search, pipeline state and export all live here, so the map keeps the whole
+ * viewport beneath it.
+ *
+ * Controls marked `data-dock-item` own a background pill that grows toward the
+ * pointer (see dock/useProximitySpring). The pill grows inside the item's share
+ * of the gap and inside the bar; the item's content never scales or shifts
+ * sideways, so labels never cover each other. The search field is not a dock
+ * item: it is a text input, and moving it under the cursor would move the caret.
  */
 export default function AppBar({
   activeTab,
@@ -40,9 +53,12 @@ export default function AppBar({
 
   const [searchOpen, setSearchOpen] = useState(false);
   const [statusOpen, setStatusOpen] = useState(false);
+  const dockRef = useRef<HTMLElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const searchRef = useRef<HTMLDivElement>(null);
   const statusRef = useRef<HTMLDivElement>(null);
+
+  useProximitySpring(dockRef);
 
   const { data: hotspotsData } = useHotspots({ limit: '1000' });
   const { data: facilitiesData } = useFacilities({ limit: '1000' });
@@ -134,10 +150,9 @@ export default function AppBar({
   const openAlertCount = openAlerts?.count ?? 0;
 
   return (
-    <Panel
-      as="header"
-      level="chrome"
-      className="absolute left-4 right-4 top-4 z-50 flex h-11 items-center gap-2 rounded-lg px-2"
+    <header
+      ref={dockRef}
+      className="glass-dock absolute left-4 right-4 top-4 z-50 flex h-11 items-center gap-2 rounded-lg px-2"
     >
       {/* Brand */}
       <div className="flex shrink-0 items-center gap-2 pl-1 pr-1">
@@ -147,31 +162,41 @@ export default function AppBar({
 
       <span className="h-4 w-px shrink-0 bg-hairline" aria-hidden="true" />
 
-      {/* Sections */}
-      <nav aria-label="Sections" className="flex shrink-0 items-center gap-0.5">
+      {/* Sections. gap-2 leaves every pill 3px of growth per side without touching. */}
+      <nav aria-label="Sections" className="flex shrink-0 items-center gap-2">
         {TABS.map((t) => (
           <button
             key={t.id}
             type="button"
+            data-dock-item
             onClick={() => onTabChange(t.id)}
             aria-current={activeTab === t.id ? 'page' : undefined}
+            aria-label={t.id === 'alerts' && openAlertCount > 0 ? `${t.label}, ${openAlertCount} open` : t.label}
             data-active={activeTab === t.id ? 'true' : undefined}
-            className="ctl relative h-7 px-2 text-[12px]"
+            className="ctl dock-item dock-tab h-7 px-2.5 text-[12px]"
           >
-            <span
-              className="material-symbols-outlined"
-              style={{ fontSize: 15 }}
-              data-filled={activeTab === t.id ? 'true' : undefined}
-              aria-hidden="true"
-            >
-              {t.icon}
-            </span>
-            <span className="hidden md:inline">{t.label}</span>
-            {t.id === 'alerts' && openAlertCount > 0 ? (
-              <span className="num ml-0.5 rounded-full bg-danger-soft px-1.5 py-px text-[10px] font-semibold text-danger">
-                {openAlertCount}
+            <DockPill />
+            <span className="dock-content">
+              <span
+                className="material-symbols-outlined"
+                style={{ fontSize: 15 }}
+                data-filled={activeTab === t.id ? 'true' : undefined}
+                aria-hidden="true"
+              >
+                {t.icon}
               </span>
-            ) : null}
+              <span className="hidden md:inline" aria-hidden="true">
+                {t.label}
+              </span>
+              {t.id === 'alerts' && openAlertCount > 0 ? (
+                <span
+                  className="num rounded-full bg-danger-soft px-1.5 py-px text-[10px] font-semibold text-danger"
+                  aria-hidden="true"
+                >
+                  {openAlertCount}
+                </span>
+              ) : null}
+            </span>
           </button>
         ))}
       </nav>
@@ -221,7 +246,7 @@ export default function AppBar({
         {searchOpen && searchQuery.trim() ? (
           <Panel
             level="popover"
-            className="arrive absolute left-0 right-0 top-full mt-1.5 max-h-[60vh] overflow-y-auto rounded-lg py-1"
+            className="arrive absolute left-0 right-0 top-full z-[60] mt-1.5 max-h-[60vh] overflow-y-auto rounded-lg py-1"
           >
             {results.length === 0 ? (
               <p className="px-3 py-3 text-[11px] text-ink-3">
@@ -254,24 +279,29 @@ export default function AppBar({
         ) : null}
       </div>
 
-      {/* Pipeline state */}
-      <div ref={statusRef} className="relative shrink-0">
+      {/* Pipeline state. Flex, not block: a layout-contained dock item has no text
+          baseline, so inside a block line box it would ride up by the descender. */}
+      <div ref={statusRef} className="relative flex shrink-0 items-center">
         <button
           type="button"
+          data-dock-item
           onClick={() => setStatusOpen((v) => !v)}
-          className="ctl h-7 px-2 text-[11px]"
+          className="ctl dock-item h-7 px-2.5 text-[11px]"
           aria-expanded={statusOpen}
           aria-label={`Pipeline status: near real-time data, ${allOk ? 'all services healthy' : 'attention required'}`}
         >
-          <span
-            className={`h-1.5 w-1.5 rounded-full ${allOk ? 'bg-ok live-dot' : 'bg-warn'}`}
-            aria-hidden="true"
-          />
-          <span className="hidden lg:inline">{allOk ? 'Near real-time' : 'Degraded'}</span>
+          <DockPill />
+          <span className="dock-content">
+            <span
+              className={`h-1.5 w-1.5 rounded-full ${allOk ? 'bg-ok live-dot' : 'bg-warn'}`}
+              aria-hidden="true"
+            />
+            <span className="hidden lg:inline">{allOk ? 'Near real-time' : 'Degraded'}</span>
+          </span>
         </button>
 
         {statusOpen ? (
-          <Panel level="popover" className="arrive absolute right-0 top-full mt-1.5 w-60 rounded-lg p-3">
+          <Panel level="popover" className="arrive absolute right-0 top-full z-[60] mt-1.5 w-60 rounded-lg p-3">
             <h2 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.06em] text-ink-3">
               Pipeline
             </h2>
@@ -326,12 +356,23 @@ export default function AppBar({
         ) : null}
       </div>
 
-      <button type="button" onClick={onExport} className="ctl h-7 shrink-0 px-2 text-[11px]">
-        <span className="material-symbols-outlined" style={{ fontSize: 15 }} aria-hidden="true">
-          download
+      <button
+        type="button"
+        data-dock-item
+        onClick={onExport}
+        className="ctl dock-item h-7 shrink-0 px-2.5 text-[11px]"
+        aria-label="Export detections"
+      >
+        <DockPill />
+        <span className="dock-content">
+          <span className="material-symbols-outlined" style={{ fontSize: 15 }} aria-hidden="true">
+            download
+          </span>
+          <span className="hidden lg:inline" aria-hidden="true">
+            Export
+          </span>
         </span>
-        <span className="hidden lg:inline">Export</span>
       </button>
-    </Panel>
+    </header>
   );
 }
