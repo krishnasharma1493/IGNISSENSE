@@ -56,6 +56,8 @@ models/xgb_fire_classifier*.json
 # Raw/processed data (retain gitkeeps and demo directories)
 data/raw/*
 data/processed/*
+# Training intermediates: local mongod data, extracted features, candidates (GBs)
+data/interim/*
 !data/raw/.gitkeep
 !data/processed/.gitkeep
 !data/demo/

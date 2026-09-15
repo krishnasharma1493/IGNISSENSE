@@ -1,0 +1,30 @@
+{
+  "version": "XGB-SYNTHETIC-v1.0.0",
+  "data_source": "synthetic",
+  "trained_at": "2026-09-13T20:38:04.367562+00:00",
+  "provenance_warning": "Trained on numpy-generated rows, not FIRMS or OSM data. Labels are a deterministic function of the sampled features. Do not cite any metric from this artifact.",
+  "features": [
+    "frp",
+    "brightness",
+    "brightness_ti5",
+    "temp_delta_ti4_ti5",
+    "confidence",
+    "is_night",
+    "facility_distance_m",
+    "facility_type_encoded",
+    "landcover_encoded",
+    "nearby_cluster_count_3km",
+    "historical_recurrence_1_5km",
+    "historical_mean_frp",
+    "frp_z_score",
+    "days_since_last_detection"
+  ],
+  "classes": [
+    "industrial_fire",
+    "gas_flare",
+    "wildfire",
+    "agricultural_burning",
+    "mining_thermal_activity",
+    "other_or_uncertain"
+  ]
+}

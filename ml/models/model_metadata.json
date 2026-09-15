@@ -1,12 +1,10 @@
 {
-  "model_name": "Ignissense Production XGBoost Multi-Class Classifier",
-  "version": "XGB-FIRMS-v1.0.0-DELHI_NCR",
-  "training_dataset_version": "SYNTHETIC_GENERATOR_V1",
-  "label_generation_method": "synthetic — per-class numpy random distributions from construct_dataset(); labels are a deterministic function of the sampled features",
-  "provenance_warning": "This model has NOT been trained on NASA FIRMS or OpenStreetMap data. The metrics below are meaningless: they measure the model's ability to invert a generator it was handed, not real-world classification accuracy. Do not cite them as model performance.",
-  "split_method": "GroupShuffleSplit (0.1\u00b0 geographic grid block cross-validation, zero spatial leakage)",
+  "model_name": "IGNISSENSE XGBoost Thermal-Event Classifier",
+  "version": "XGB-FIRMS-v2.0.0-INDIA-SP2023",
+  "active_artifact": "models/xgb_fire_classifier_v2.joblib",
+  "data_source": "real",
   "framework": "XGBoost 3.4.1",
-  "trained_at": "2026-08-30T09:29:50.332573",
+  "trained_at": "2026-09-13T20:47:25.233862+00:00",
   "features": [
     "frp",
     "brightness",
@@ -23,6 +21,7 @@
     "frp_z_score",
     "days_since_last_detection"
   ],
+  "feature_version": "v1.1.0",
   "classes": [
     "industrial_fire",
     "gas_flare",
@@ -31,116 +30,798 @@
     "mining_thermal_activity",
     "other_or_uncertain"
   ],
+  "training_data": {
+    "detections": "NASA FIRMS standard-processing (archive) active fire detections, India country files, VIIRS S-NPP 375 m, VIIRS NOAA-20 375 m, MODIS Aqua/Terra 1 km",
+    "years": {
+      "history_context": "2022-2024",
+      "train_val_labels": 2023,
+      "test_labels": 2024
+    },
+    "extra_context": "VIIRS NOAA-21 NRT 2024 (unlabelled; production ingests NOAA-21, the archive does not carry it)",
+    "osm_context": "Geofabrik india-latest.osm.pbf filtered with the backend Overpass query, normalised by the backend normalizeOsmElement()",
+    "firms_files": {
+      "modis_2022_India.csv": {
+        "bytes": 6336734,
+        "downloaded_at": null,
+        "sha256": "a51ead4831610c560fae5540d3bd79b621644e7aed04d14eeb2594dece0999fa",
+        "url": "https://firms.modaps.eosdis.nasa.gov/data/country/modis/2022/modis_2022_India.csv"
+      },
+      "modis_2023_India.csv": {
+        "bytes": 6174807,
+        "downloaded_at": null,
+        "sha256": "b62507fb982b492e9a3af159105aea4cf2b842d10fee562d495a0af7da630452",
+        "url": "https://firms.modaps.eosdis.nasa.gov/data/country/modis/2023/modis_2023_India.csv"
+      },
+      "modis_2024_India.csv": {
+        "bytes": 5822801,
+        "downloaded_at": null,
+        "sha256": "8b4a7056fb7324c225b2792253980b964c0a3d4912d97302692a6b7b32d862de",
+        "url": "https://firms.modaps.eosdis.nasa.gov/data/country/modis/2024/modis_2024_India.csv"
+      },
+      "viirs-jpss1_2022_India.csv": {
+        "bytes": 48704440,
+        "downloaded_at": null,
+        "sha256": "e77613419c818fa94acc3ac47ff3d9dd485fa8e77da28938bee73df76eaf5bfc",
+        "url": "https://firms.modaps.eosdis.nasa.gov/data/country/viirs-jpss1/2022/viirs-jpss1_2022_India.csv"
+      },
+      "viirs-jpss1_2023_India.csv": {
+        "bytes": 47438738,
+        "downloaded_at": null,
+        "sha256": "5505655a53ac5bfe6e88b472e933e7e12a7ab78a55beb297a137e624b79fb7a2",
+        "url": "https://firms.modaps.eosdis.nasa.gov/data/country/viirs-jpss1/2023/viirs-jpss1_2023_India.csv"
+      },
+      "viirs-jpss1_2024_India.csv": {
+        "bytes": 46389955,
+        "downloaded_at": null,
+        "sha256": "4dc6c62485066902ee614d8f3fc63278f5259d37ba71050efb54e15ae2012cb8",
+        "url": "https://firms.modaps.eosdis.nasa.gov/data/country/viirs-jpss1/2024/viirs-jpss1_2024_India.csv"
+      },
+      "viirs-snpp_2022_India.csv": {
+        "bytes": 46288282,
+        "downloaded_at": null,
+        "sha256": "517bcb87ede917538ad8c72b478d638f2d1e3fe58d16f231457ba809d81250eb",
+        "url": "https://firms.modaps.eosdis.nasa.gov/data/country/viirs-snpp/2022/viirs-snpp_2022_India.csv"
+      },
+      "viirs-snpp_2023_India.csv": {
+        "bytes": 45363702,
+        "downloaded_at": null,
+        "sha256": "ae665975f00b08e4c3f88b8057385f6c499c94283c13357ca607cdd54b89e2e1",
+        "url": "https://firms.modaps.eosdis.nasa.gov/data/country/viirs-snpp/2023/viirs-snpp_2023_India.csv"
+      },
+      "viirs-snpp_2024_India.csv": {
+        "bytes": 43219694,
+        "downloaded_at": null,
+        "sha256": "561c85c5eb63441bae042d6be8b79fd1052be154e3445f355ac5e1fb0451b48f",
+        "url": "https://firms.modaps.eosdis.nasa.gov/data/country/viirs-snpp/2024/viirs-snpp_2024_India.csv"
+      }
+    }
+  },
+  "feature_extraction": "backend extractFeaturesForHotspot + toCanonicalFeatureRecord against a local database holding the archive detections and OSM context; history/cluster queries look backwards only",
+  "label_generation_method": "independent_sources_v1",
+  "labeling": {
+    "sources": {
+      "firms_type": "NASA FIRMS `type`: 0 presumed vegetation fire, 1 active volcano, 2 other static land source, 3 offshore",
+      "vnf_flares": "Earth Observation Group VIIRS Nightfire global flare catalogues 2023 and 2024 (upstream, refinery, gas plant sheets)",
+      "mining_polygons": "Maus et al. (2022) Global-scale mining polygons v2, PANGAEA doi:10.1594/PANGAEA.942325 (CC BY-SA 4.0)",
+      "land_cover": "ESA WorldCover 10 m 2021 v200 (CC BY 4.0), class fractions over each detection pixel footprint (scan x track), read from the 20 m first overview level (98.8% label agreement with 10 m on 3,000 footprints)"
+    },
+    "rules": [
+      "gas_flare: type 2 or 3 within 1 km of a same-year VNF flare site",
+      "mining_thermal_activity: type 2 inside a mining polygon",
+      "industrial_fire: type 2, not a flare site, not a mining polygon",
+      "agricultural_burning: type 0, WorldCover cropland >= 60% of footprint",
+      "wildfire: type 0, WorldCover tree/shrub/grass/mangrove >= 60% of footprint",
+      "other_or_uncertain: type 1; type 3 without flare match; type 0 inside mining polygon; type 0 with mixed or non-vegetated footprint"
+    ],
+    "independence": "No label reads OSM or any model input feature.",
+    "report": {
+      "seed": 20260914,
+      "block_deg": 0.5,
+      "partition_share_targets": {
+        "train": 0.68,
+        "val": 0.12,
+        "test": 0.2
+      },
+      "partitions": {
+        "train": "2023 detections in train blocks",
+        "val": "2023 detections in validation blocks",
+        "test": "2024 detections in test blocks"
+      },
+      "worldcover_purity_threshold": 0.6,
+      "flare_radius_m": 1000,
+      "type0_sample_sizes": {
+        "train": 160000,
+        "val": 32000,
+        "test": 64000
+      },
+      "class_caps": {
+        "train": 30000,
+        "val": 6000,
+        "test": 12000
+      },
+      "kept_counts": {
+        "test/agricultural_burning": 12000,
+        "test/gas_flare": 635,
+        "test/industrial_fire": 12000,
+        "test/mining_thermal_activity": 10939,
+        "test/other_or_uncertain": 5308,
+        "test/wildfire": 12000,
+        "train/agricultural_burning": 30000,
+        "train/gas_flare": 4022,
+        "train/industrial_fire": 30000,
+        "train/mining_thermal_activity": 30000,
+        "train/other_or_uncertain": 22059,
+        "train/wildfire": 30000,
+        "val/agricultural_burning": 4079,
+        "val/gas_flare": 627,
+        "val/industrial_fire": 6000,
+        "val/mining_thermal_activity": 4804,
+        "val/other_or_uncertain": 3326,
+        "val/wildfire": 6000
+      },
+      "estimated_natural_counts": {
+        "train": {
+          "industrial_fire": 55786,
+          "gas_flare": 4022,
+          "wildfire": 328868,
+          "agricultural_burning": 343258,
+          "mining_thermal_activity": 45716,
+          "other_or_uncertain": 71166
+        },
+        "val": {
+          "industrial_fire": 10509,
+          "gas_flare": 627,
+          "wildfire": 105808,
+          "agricultural_burning": 16499,
+          "mining_thermal_activity": 4804,
+          "other_or_uncertain": 8694
+        },
+        "test": {
+          "industrial_fire": 16752,
+          "gas_flare": 635,
+          "wildfire": 94969,
+          "agricultural_burning": 109286,
+          "mining_thermal_activity": 10939,
+          "other_or_uncertain": 13833
+        }
+      },
+      "label_rule_counts": {
+        "test/firms_type_0+worldcover_cropland>=0.6": 12000,
+        "test/firms_type_0+worldcover_mixed_or_nonvegetated": 3581,
+        "test/firms_type_0+worldcover_natural_veg>=0.6": 12000,
+        "test/firms_type_0_inside_mining_polygon": 1536,
+        "test/firms_type_2+maus2022_mining_polygon": 10939,
+        "test/firms_type_2+vnf_flare_site_within_1km": 634,
+        "test/firms_type_2_not_flare_not_mine": 12000,
+        "test/firms_type_3+vnf_flare_site_within_1km": 1,
+        "test/firms_type_3_offshore_no_flare_match": 191,
+        "train/firms_type_0+worldcover_cropland>=0.6": 30000,
+        "train/firms_type_0+worldcover_mixed_or_nonvegetated": 13667,
+        "train/firms_type_0+worldcover_natural_veg>=0.6": 30000,
+        "train/firms_type_0_inside_mining_polygon": 6638,
+        "train/firms_type_1_volcano": 4,
+        "train/firms_type_2+maus2022_mining_polygon": 30000,
+        "train/firms_type_2+vnf_flare_site_within_1km": 3956,
+        "train/firms_type_2_not_flare_not_mine": 30000,
+        "train/firms_type_3+vnf_flare_site_within_1km": 66,
+        "train/firms_type_3_offshore_no_flare_match": 1750,
+        "val/firms_type_0+worldcover_cropland>=0.6": 4079,
+        "val/firms_type_0+worldcover_mixed_or_nonvegetated": 1763,
+        "val/firms_type_0+worldcover_natural_veg>=0.6": 6000,
+        "val/firms_type_0_inside_mining_polygon": 1188,
+        "val/firms_type_2+maus2022_mining_polygon": 4804,
+        "val/firms_type_2+vnf_flare_site_within_1km": 622,
+        "val/firms_type_2_not_flare_not_mine": 6000,
+        "val/firms_type_3+vnf_flare_site_within_1km": 5,
+        "val/firms_type_3_offshore_no_flare_match": 375
+      }
+    }
+  },
+  "split_method": "0.5 degree spatial blocks assigned wholly to one partition; train = 2023 in train blocks, val = 2023 in validation blocks (early stopping only), test = 2024 in held-out blocks",
+  "serving_gate": {
+    "labelled_rows": 223799,
+    "hotspot_not_found": 739,
+    "not_extracted": 613,
+    "gate_by_split_and_class": [
+      {
+        "split": "test",
+        "label": "agricultural_burning",
+        "total": 11960,
+        "servable": 11127,
+        "excluded": 833
+      },
+      {
+        "split": "test",
+        "label": "gas_flare",
+        "total": 634,
+        "servable": 634,
+        "excluded": 0
+      },
+      {
+        "split": "test",
+        "label": "industrial_fire",
+        "total": 11991,
+        "servable": 11981,
+        "excluded": 10
+      },
+      {
+        "split": "test",
+        "label": "mining_thermal_activity",
+        "total": 10918,
+        "servable": 10918,
+        "excluded": 0
+      },
+      {
+        "split": "test",
+        "label": "other_or_uncertain",
+        "total": 5295,
+        "servable": 5019,
+        "excluded": 276
+      },
+      {
+        "split": "test",
+        "label": "wildfire",
+        "total": 11936,
+        "servable": 7703,
+        "excluded": 4233
+      },
+      {
+        "split": "train",
+        "label": "agricultural_burning",
+        "total": 29895,
+        "servable": 27965,
+        "excluded": 1930
+      },
+      {
+        "split": "train",
+        "label": "gas_flare",
+        "total": 4020,
+        "servable": 4020,
+        "excluded": 0
+      },
+      {
+        "split": "train",
+        "label": "industrial_fire",
+        "total": 29945,
+        "servable": 29943,
+        "excluded": 2
+      },
+      {
+        "split": "train",
+        "label": "mining_thermal_activity",
+        "total": 29887,
+        "servable": 29887,
+        "excluded": 0
+      },
+      {
+        "split": "train",
+        "label": "other_or_uncertain",
+        "total": 22026,
+        "servable": 20870,
+        "excluded": 1156
+      },
+      {
+        "split": "train",
+        "label": "wildfire",
+        "total": 29911,
+        "servable": 22509,
+        "excluded": 7402
+      },
+      {
+        "split": "val",
+        "label": "agricultural_burning",
+        "total": 4073,
+        "servable": 3443,
+        "excluded": 630
+      },
+      {
+        "split": "val",
+        "label": "gas_flare",
+        "total": 627,
+        "servable": 627,
+        "excluded": 0
+      },
+      {
+        "split": "val",
+        "label": "industrial_fire",
+        "total": 5983,
+        "servable": 5983,
+        "excluded": 0
+      },
+      {
+        "split": "val",
+        "label": "mining_thermal_activity",
+        "total": 4797,
+        "servable": 4797,
+        "excluded": 0
+      },
+      {
+        "split": "val",
+        "label": "other_or_uncertain",
+        "total": 3316,
+        "servable": 3085,
+        "excluded": 231
+      },
+      {
+        "split": "val",
+        "label": "wildfire",
+        "total": 5972,
+        "servable": 3783,
+        "excluded": 2189
+      }
+    ],
+    "unresolved_feature_counts": {
+      "facility_distance_m": 18892,
+      "facility_type_encoded": 18892,
+      "landcover_encoded": 18892
+    }
+  },
+  "class_distribution_servable": {
+    "test": {
+      "industrial_fire": 11981,
+      "gas_flare": 634,
+      "wildfire": 7703,
+      "agricultural_burning": 11127,
+      "mining_thermal_activity": 10918,
+      "other_or_uncertain": 5019
+    },
+    "train": {
+      "industrial_fire": 29943,
+      "gas_flare": 4020,
+      "wildfire": 22509,
+      "agricultural_burning": 27965,
+      "mining_thermal_activity": 29887,
+      "other_or_uncertain": 20870
+    },
+    "val": {
+      "industrial_fire": 5983,
+      "gas_flare": 627,
+      "wildfire": 3783,
+      "agricultural_burning": 3443,
+      "mining_thermal_activity": 4797,
+      "other_or_uncertain": 3085
+    }
+  },
+  "hyperparameters": {
+    "objective": "multi:softprob",
+    "num_class": 6,
+    "tree_method": "hist",
+    "max_depth": 7,
+    "learning_rate": 0.05,
+    "n_estimators": 2000,
+    "subsample": 0.8,
+    "colsample_bytree": 0.8,
+    "min_child_weight": 5,
+    "gamma": 0.0,
+    "reg_alpha": 0.0,
+    "reg_lambda": 1.0,
+    "max_bin": 256,
+    "random_state": 42,
+    "n_jobs": -1,
+    "eval_metric": "mlogloss",
+    "early_stopping_rounds": 60,
+    "best_iteration": 100,
+    "sample_weighting": "class-balanced"
+  },
   "metrics": {
-    "accuracy": 1.0,
-    "macro_f1": 1.0,
-    "weighted_f1": 1.0,
-    "macro_precision": 1.0,
-    "macro_recall": 1.0,
-    "log_loss": 0.0009
+    "test_class_capped": {
+      "accuracy": 0.6549,
+      "macro_f1": 0.5488,
+      "weighted_f1": 0.6488,
+      "log_loss": 0.8901
+    },
+    "test_prevalence_weighted": {
+      "accuracy": 0.6966,
+      "macro_f1": 0.5252,
+      "weighted_f1": 0.6943,
+      "log_loss": 0.7958
+    }
   },
   "per_class_metrics": {
     "industrial_fire": {
-      "precision": 1.0,
-      "recall": 1.0,
-      "f1_score": 1.0,
-      "support": 404
+      "precision": 0.6585,
+      "recall": 0.708,
+      "f1": 0.6824,
+      "support": 11981
     },
     "gas_flare": {
-      "precision": 1.0,
-      "recall": 1.0,
-      "f1_score": 1.0,
-      "support": 382
+      "precision": 0.1552,
+      "recall": 0.5126,
+      "f1": 0.2383,
+      "support": 634
     },
     "wildfire": {
-      "precision": 1.0,
-      "recall": 1.0,
-      "f1_score": 1.0,
-      "support": 318
+      "precision": 0.6453,
+      "recall": 0.6653,
+      "f1": 0.6552,
+      "support": 7703
     },
     "agricultural_burning": {
-      "precision": 1.0,
-      "recall": 1.0,
-      "f1_score": 1.0,
-      "support": 671
+      "precision": 0.7028,
+      "recall": 0.782,
+      "f1": 0.7403,
+      "support": 11127
     },
     "mining_thermal_activity": {
-      "precision": 1.0,
-      "recall": 1.0,
-      "f1_score": 1.0,
-      "support": 300
+      "precision": 0.7539,
+      "recall": 0.6834,
+      "f1": 0.7169,
+      "support": 10918
     },
     "other_or_uncertain": {
-      "precision": 1.0,
-      "recall": 1.0,
-      "f1_score": 1.0,
-      "support": 268
+      "precision": 0.4282,
+      "recall": 0.1865,
+      "f1": 0.2598,
+      "support": 5019
+    }
+  },
+  "per_class_metrics_prevalence_weighted": {
+    "industrial_fire": {
+      "precision": 0.6244,
+      "recall": 0.708,
+      "f1": 0.6636,
+      "support": 16725.5
+    },
+    "gas_flare": {
+      "precision": 0.0918,
+      "recall": 0.5126,
+      "f1": 0.1558,
+      "support": 634.0
+    },
+    "wildfire": {
+      "precision": 0.6689,
+      "recall": 0.6653,
+      "f1": 0.6671,
+      "support": 60962.2
+    },
+    "agricultural_burning": {
+      "precision": 0.7851,
+      "recall": 0.782,
+      "f1": 0.7835,
+      "support": 101335.4
+    },
+    "mining_thermal_activity": {
+      "precision": 0.6036,
+      "recall": 0.6834,
+      "f1": 0.641,
+      "support": 10918.0
+    },
+    "other_or_uncertain": {
+      "precision": 0.3379,
+      "recall": 0.1865,
+      "f1": 0.2403,
+      "support": 13079.9
     }
   },
   "confusion_matrix": [
     [
-      404,
-      0,
-      0,
-      0,
-      0,
-      0
+      8483,
+      1418,
+      12,
+      74,
+      1424,
+      570
     ],
     [
+      254,
+      325,
       0,
-      382,
       0,
-      0,
-      0,
-      0
+      21,
+      34
     ],
     [
-      0,
-      0,
-      318,
-      0,
-      0,
-      0
+      81,
+      17,
+      5125,
+      2306,
+      22,
+      152
     ],
     [
-      0,
-      0,
-      0,
-      671,
-      0,
-      0
+      95,
+      62,
+      1961,
+      8701,
+      30,
+      278
     ],
     [
+      3102,
+      108,
       0,
-      0,
-      0,
-      0,
-      300,
-      0
+      31,
+      7461,
+      216
     ],
     [
-      0,
-      0,
-      0,
-      0,
-      0,
-      268
+      868,
+      164,
+      844,
+      1269,
+      938,
+      936
     ]
   ],
-  "feature_importances": {
-    "landcover_encoded": 0.1662,
-    "days_since_last_detection": 0.1466,
-    "facility_type_encoded": 0.1432,
-    "frp_z_score": 0.1101,
-    "frp": 0.1029,
-    "facility_distance_m": 0.1003,
-    "confidence": 0.0902,
-    "historical_recurrence_1_5km": 0.0792,
-    "historical_mean_frp": 0.029,
-    "nearby_cluster_count_3km": 0.0211,
-    "temp_delta_ti4_ti5": 0.0043,
-    "is_night": 0.0036,
-    "brightness_ti5": 0.0023,
-    "brightness": 0.0011
-  }
+  "confusion_matrix_order": [
+    "industrial_fire",
+    "gas_flare",
+    "wildfire",
+    "agricultural_burning",
+    "mining_thermal_activity",
+    "other_or_uncertain"
+  ],
+  "baselines": {
+    "majority_class": {
+      "accuracy": 0.2529,
+      "macro_f1": 0.0673,
+      "per_class": {
+        "industrial_fire": {
+          "precision": 0.2529,
+          "recall": 1.0,
+          "f1": 0.4037,
+          "support": 11981
+        },
+        "gas_flare": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "support": 634
+        },
+        "wildfire": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "support": 7703
+        },
+        "agricultural_burning": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "support": 11127
+        },
+        "mining_thermal_activity": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "support": 10918
+        },
+        "other_or_uncertain": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "support": 5019
+        }
+      }
+    },
+    "osm_proximity_rule": {
+      "accuracy": 0.4204,
+      "macro_f1": 0.4125,
+      "per_class": {
+        "industrial_fire": {
+          "precision": 0.6452,
+          "recall": 0.6585,
+          "f1": 0.6518,
+          "support": 11981
+        },
+        "gas_flare": {
+          "precision": 0.5688,
+          "recall": 0.3454,
+          "f1": 0.4298,
+          "support": 634
+        },
+        "wildfire": {
+          "precision": 0.5673,
+          "recall": 0.4845,
+          "f1": 0.5226,
+          "support": 7703
+        },
+        "agricultural_burning": {
+          "precision": 0.5372,
+          "recall": 0.0883,
+          "f1": 0.1516,
+          "support": 11127
+        },
+        "mining_thermal_activity": {
+          "precision": 0.6919,
+          "recall": 0.5045,
+          "f1": 0.5835,
+          "support": 10918
+        },
+        "other_or_uncertain": {
+          "precision": 0.0864,
+          "recall": 0.3168,
+          "f1": 0.1358,
+          "support": 5019
+        }
+      }
+    }
+  },
+  "ablations": {
+    "without_history_features": {
+      "dropped": [
+        "nearby_cluster_count_3km",
+        "historical_recurrence_1_5km",
+        "historical_mean_frp",
+        "frp_z_score",
+        "days_since_last_detection"
+      ],
+      "best_iteration": 80,
+      "accuracy": 0.5574,
+      "macro_f1": 0.4513,
+      "log_loss": 1.1597,
+      "per_class": {
+        "industrial_fire": {
+          "precision": 0.6672,
+          "recall": 0.5524,
+          "f1": 0.6044,
+          "support": 11981
+        },
+        "gas_flare": {
+          "precision": 0.0547,
+          "recall": 0.4132,
+          "f1": 0.0966,
+          "support": 634
+        },
+        "wildfire": {
+          "precision": 0.534,
+          "recall": 0.6734,
+          "f1": 0.5957,
+          "support": 7703
+        },
+        "agricultural_burning": {
+          "precision": 0.6492,
+          "recall": 0.6991,
+          "f1": 0.6732,
+          "support": 11127
+        },
+        "mining_thermal_activity": {
+          "precision": 0.6819,
+          "recall": 0.5622,
+          "f1": 0.6163,
+          "support": 10918
+        },
+        "other_or_uncertain": {
+          "precision": 0.2153,
+          "recall": 0.0847,
+          "f1": 0.1216,
+          "support": 5019
+        }
+      }
+    },
+    "without_osm_features": {
+      "dropped": [
+        "facility_distance_m",
+        "facility_type_encoded",
+        "landcover_encoded"
+      ],
+      "best_iteration": 213,
+      "accuracy": 0.5792,
+      "macro_f1": 0.4677,
+      "log_loss": 1.0206,
+      "per_class": {
+        "industrial_fire": {
+          "precision": 0.6216,
+          "recall": 0.4545,
+          "f1": 0.525,
+          "support": 11981
+        },
+        "gas_flare": {
+          "precision": 0.0871,
+          "recall": 0.6025,
+          "f1": 0.1522,
+          "support": 634
+        },
+        "wildfire": {
+          "precision": 0.5861,
+          "recall": 0.5642,
+          "f1": 0.5749,
+          "support": 7703
+        },
+        "agricultural_burning": {
+          "precision": 0.6889,
+          "recall": 0.7058,
+          "f1": 0.6972,
+          "support": 11127
+        },
+        "mining_thermal_activity": {
+          "precision": 0.6382,
+          "recall": 0.8223,
+          "f1": 0.7187,
+          "support": 10918
+        },
+        "other_or_uncertain": {
+          "precision": 0.3252,
+          "recall": 0.0877,
+          "f1": 0.1381,
+          "support": 5019
+        }
+      }
+    },
+    "fire_radiometry_only": {
+      "dropped": [
+        "nearby_cluster_count_3km",
+        "historical_recurrence_1_5km",
+        "historical_mean_frp",
+        "frp_z_score",
+        "days_since_last_detection",
+        "facility_distance_m",
+        "facility_type_encoded",
+        "landcover_encoded"
+      ],
+      "best_iteration": 218,
+      "accuracy": 0.4192,
+      "macro_f1": 0.3248,
+      "log_loss": 1.4447,
+      "per_class": {
+        "industrial_fire": {
+          "precision": 0.4748,
+          "recall": 0.3698,
+          "f1": 0.4157,
+          "support": 11981
+        },
+        "gas_flare": {
+          "precision": 0.0339,
+          "recall": 0.2587,
+          "f1": 0.0599,
+          "support": 634
+        },
+        "wildfire": {
+          "precision": 0.3834,
+          "recall": 0.3901,
+          "f1": 0.3867,
+          "support": 7703
+        },
+        "agricultural_burning": {
+          "precision": 0.541,
+          "recall": 0.6159,
+          "f1": 0.576,
+          "support": 11127
+        },
+        "mining_thermal_activity": {
+          "precision": 0.4398,
+          "recall": 0.4825,
+          "f1": 0.4601,
+          "support": 10918
+        },
+        "other_or_uncertain": {
+          "precision": 0.1983,
+          "recall": 0.0287,
+          "f1": 0.0501,
+          "support": 5019
+        }
+      }
+    }
+  },
+  "feature_importances_gain": {
+    "frp": 0.0101,
+    "brightness": 0.0109,
+    "brightness_ti5": 0.0148,
+    "temp_delta_ti4_ti5": 0.0104,
+    "confidence": 0.0078,
+    "is_night": 0.1644,
+    "facility_distance_m": 0.0797,
+    "facility_type_encoded": 0.187,
+    "landcover_encoded": 0.0722,
+    "nearby_cluster_count_3km": 0.0853,
+    "historical_recurrence_1_5km": 0.2745,
+    "historical_mean_frp": 0.0488,
+    "frp_z_score": 0.0087,
+    "days_since_last_detection": 0.0254
+  },
+  "limitations": [
+    "Labels are rule-based derivations from independent published sources (NASA FIRMS type, EOG VIIRS Nightfire flare sites, Maus et al. 2022 mining polygons, ESA WorldCover 2021), not field-verified ground truth. Test metrics measure agreement with those labels on unseen 0.5-degree blocks in a later year.",
+    "NASA derives FIRMS type 2 (static land source) from multi-year detection persistence. The model's history features measure related persistence, so part of the industrial/flare/mining signal is a proxy for how that label source was built. The without_history_features ablation quantifies this.",
+    "Maus et al. mining polygons include processing infrastructure, so smelters or steel works inside a mapped mining footprint are labelled mining_thermal_activity rather than industrial_fire.",
+    "gas_flare depends on the EOG VNF catalogue (156 Indian flare sites in 2023, 158 in 2024). A static source missing from it is labelled industrial_fire (type 2) or other_or_uncertain (type 3 offshore).",
+    "WorldCover is a 2021 map applied to 2023-2024 detections; land-cover change is not modelled. Shifting cultivation (jhum) in north-east India burns in tree cover and is labelled wildfire.",
+    "WorldCover footprint fractions are computed on the COG's first overview level (20 m) rather than the native 10 m, because of download bandwidth. On 3,000 real footprints the 20 m and 10 m fractions produced the same label 98.8% of the time (mean fraction difference 0.0098).",
+    "OSM context is a September 2026 Geofabrik snapshot applied to 2022-2024 detections.",
+    "Training uses standard-processing (archive) detections; live serving receives NRT detections, whose radiometry and geolocation can differ slightly.",
+    "VIIRS NOAA-21 context is available only from 2024-01-17 (NRT). 2023 training rows' cluster and history counts therefore lack a third VIIRS satellite that 2024 test rows and live production include.",
+    "The completeness gate is unchanged: a detection with no mapped industrial, power, oil/gas or mining OSM feature within 25 km cannot be classified in production, so such rows were excluded from training and test. Remote wildfires are under-represented as a result (see serving_gate).",
+    "The live database's history begins when ingestion began, so recurrence and FRP-baseline features start shallower in production than in training (which had up to two years of prior detections) until history accumulates.",
+    "The production dedup index {location.coordinates, detectedAt, satellite, instrument} is multikey on the coordinate array, so two distinct detections that share only a latitude or only a longitude in the same overpass collide. Loading the archive through it rejected about 0.3-0.4% of VIIRS rows and 0.6-1.1% of MODIS rows; training context inherits the same drops as production.",
+    "Detections come from FIRMS India country files (FIRMS's boundary); the live backend ingests a rectangular bounding box that includes neighbouring countries."
+  ]
 }

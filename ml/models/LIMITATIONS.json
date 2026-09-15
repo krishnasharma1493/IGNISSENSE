@@ -1,0 +1,15 @@
+[
+  "Labels are rule-based derivations from independent published sources (NASA FIRMS type, EOG VIIRS Nightfire flare sites, Maus et al. 2022 mining polygons, ESA WorldCover 2021), not field-verified ground truth. Test metrics measure agreement with those labels on unseen 0.5-degree blocks in a later year.",
+  "NASA derives FIRMS type 2 (static land source) from multi-year detection persistence. The model's history features measure related persistence, so part of the industrial/flare/mining signal is a proxy for how that label source was built. The without_history_features ablation quantifies this.",
+  "Maus et al. mining polygons include processing infrastructure, so smelters or steel works inside a mapped mining footprint are labelled mining_thermal_activity rather than industrial_fire.",
+  "gas_flare depends on the EOG VNF catalogue (156 Indian flare sites in 2023, 158 in 2024). A static source missing from it is labelled industrial_fire (type 2) or other_or_uncertain (type 3 offshore).",
+  "WorldCover is a 2021 map applied to 2023-2024 detections; land-cover change is not modelled. Shifting cultivation (jhum) in north-east India burns in tree cover and is labelled wildfire.",
+  "WorldCover footprint fractions are computed on the COG's first overview level (20 m) rather than the native 10 m, because of download bandwidth. On 3,000 real footprints the 20 m and 10 m fractions produced the same label 98.8% of the time (mean fraction difference 0.0098).",
+  "OSM context is a September 2026 Geofabrik snapshot applied to 2022-2024 detections.",
+  "Training uses standard-processing (archive) detections; live serving receives NRT detections, whose radiometry and geolocation can differ slightly.",
+  "VIIRS NOAA-21 context is available only from 2024-01-17 (NRT). 2023 training rows' cluster and history counts therefore lack a third VIIRS satellite that 2024 test rows and live production include.",
+  "The completeness gate is unchanged: a detection with no mapped industrial, power, oil/gas or mining OSM feature within 25 km cannot be classified in production, so such rows were excluded from training and test. Remote wildfires are under-represented as a result (see serving_gate).",
+  "The live database's history begins when ingestion began, so recurrence and FRP-baseline features start shallower in production than in training (which had up to two years of prior detections) until history accumulates.",
+  "The production dedup index {location.coordinates, detectedAt, satellite, instrument} is multikey on the coordinate array, so two distinct detections that share only a latitude or only a longitude in the same overpass collide. Loading the archive through it rejected about 0.3-0.4% of VIIRS rows and 0.6-1.1% of MODIS rows; training context inherits the same drops as production.",
+  "Detections come from FIRMS India country files (FIRMS's boundary); the live backend ingests a rectangular bounding box that includes neighbouring countries."
+]

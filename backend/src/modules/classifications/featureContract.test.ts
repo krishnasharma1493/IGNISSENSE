@@ -11,31 +11,32 @@ const schema = JSON.parse(
 );
 
 /**
- * The third lockstep location is ml/src/training/train.py. It is what the model
- * was actually fit on, so a map that drifts there is drift the schema file
- * cannot reveal — feature_schema.json is written by hand and can agree with the
- * backend while both disagree with training. The maps are read out of the
- * Python source directly rather than trusted second-hand.
+ * The third lockstep location is ml/src/training/classes.py, the module train.py
+ * imports its feature columns and encodings from. It is what the model was
+ * actually fit on, so a map that drifts there is drift the schema file cannot
+ * reveal — feature_schema.json is written by hand and can agree with the backend
+ * while both disagree with training. The maps are read out of the Python source
+ * directly rather than trusted second-hand.
  */
 const trainPySource = readFileSync(
-  join(__dirname, '../../../../ml/src/training/train.py'),
+  join(__dirname, '../../../../ml/src/training/classes.py'),
   'utf8'
 );
 
 function parsePyIntMap(source: string, name: string): Record<string, number> {
   const match = source.match(new RegExp(`^${name}\\s*=\\s*\\{([\\s\\S]*?)^\\}`, 'm'));
-  if (!match) throw new Error(`${name} not found in train.py — the lockstep check cannot run`);
+  if (!match) throw new Error(`${name} not found in classes.py — the lockstep check cannot run`);
   const out: Record<string, number> = {};
   for (const [, key, value] of match[1].matchAll(/'([^']+)'\s*:\s*(-?\d+)/g)) {
     out[key] = Number(value);
   }
-  if (Object.keys(out).length === 0) throw new Error(`${name} in train.py parsed as empty`);
+  if (Object.keys(out).length === 0) throw new Error(`${name} in classes.py parsed as empty`);
   return out;
 }
 
 function parsePyStringList(source: string, name: string): string[] {
   const match = source.match(new RegExp(`^${name}\\s*=\\s*\\[([\\s\\S]*?)^\\]`, 'm'));
-  if (!match) throw new Error(`${name} not found in train.py — the lockstep check cannot run`);
+  if (!match) throw new Error(`${name} not found in classes.py — the lockstep check cannot run`);
   return [...match[1].matchAll(/'([^']+)'/g)].map((m) => m[1]);
 }
 

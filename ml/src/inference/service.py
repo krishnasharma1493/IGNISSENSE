@@ -4,8 +4,13 @@ SIH 2026 — Problem Statement 26162
 Production XGBoost Model Inference Service
 
 Zero-dependency HTTP server (standard library http.server) serving
-real-time multi-class thermal predictions directly from the trained
-model artifact (xgb_fire_classifier_v1.joblib).
+real-time multi-class thermal predictions from the trained model artifact.
+
+Artifact resolution, first match wins:
+  1. $IGNISSENSE_MODEL_ARTIFACT (explicit path, e.g. the synthetic fallback)
+  2. models/xgb_fire_classifier_v2.joblib   (trained on real FIRMS data)
+  3. models/xgb_fire_classifier_v1.joblib   (legacy synthetic artifact)
+  4. models/xgb_fire_classifier.joblib
 """
 
 import os
@@ -16,16 +21,9 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 import joblib
 import numpy as np
 import pandas as pd
+import xgboost
 
-# Features the backend must have resolved before we run inference. A null (or
-# absent) value here means the backend could not measure/derive the feature —
-# coercing it to a placeholder would silently reintroduce the substitution bug
-# the backend was changed to remove, so we reject the request instead.
-REQUIRED = [
-    "frp", "brightness", "brightness_ti5", "temp_delta_ti4_ti5", "confidence",
-    "is_night", "facility_distance_m", "facility_type_encoded",
-    "landcover_encoded", "nearby_cluster_count_3km",
-]
+from feature_frame import missing_required, to_model_frame
 
 logging.basicConfig(
     level=logging.INFO,
@@ -34,24 +32,31 @@ logging.basicConfig(
 )
 logger = logging.getLogger('InferenceService')
 
-# Path to trained model bundle
-MODEL_PATH = os.path.join(
-    os.path.dirname(__file__), '..', '..', 'models', 'xgb_fire_classifier_v1.joblib'
-)
+MODELS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'models')
 
-if not os.path.exists(MODEL_PATH):
-    # Fallback to general model path
-    MODEL_PATH = os.path.join(
-        os.path.dirname(__file__), '..', '..', 'models', 'xgb_fire_classifier.joblib'
-    )
 
+def resolve_model_path():
+    explicit = os.environ.get('IGNISSENSE_MODEL_ARTIFACT')
+    if explicit:
+        if not os.path.exists(explicit):
+            sys.exit(f'IGNISSENSE_MODEL_ARTIFACT does not exist: {explicit}')
+        return explicit
+    for name in ('xgb_fire_classifier_v2.joblib', 'xgb_fire_classifier_v1.joblib', 'xgb_fire_classifier.joblib'):
+        path = os.path.join(MODELS_DIR, name)
+        if os.path.exists(path):
+            return path
+    sys.exit(f'No model artifact found in {MODELS_DIR}. Run src/training/train.py first.')
+
+
+MODEL_PATH = resolve_model_path()
 logger.info(f"Loading production model artifact from: {MODEL_PATH}")
 bundle = joblib.load(MODEL_PATH)
 model = bundle['model']
 feature_names = bundle['features']
 classes = bundle['classes']
 model_version = bundle.get('version', 'XGB-FIRMS-v1.0.0-DELHI_NCR')
-logger.info(f"Loaded {model_version} with {len(feature_names)} features and {len(classes)} classes.")
+data_source = bundle.get('data_source', 'synthetic')
+logger.info(f"Loaded {model_version} ({data_source}) with {len(feature_names)} features and {len(classes)} classes.")
 
 
 class InferenceHandler(BaseHTTPRequestHandler):
@@ -73,7 +78,8 @@ class InferenceHandler(BaseHTTPRequestHandler):
                 'status': 'ok',
                 'service': 'IGNISSENSE ML Inference Engine',
                 'model_version': model_version,
-                'framework': 'XGBoost 3.4.1',
+                'data_source': data_source,
+                'framework': f'XGBoost {xgboost.__version__}',
                 'features': feature_names,
                 'classes': classes,
             }
@@ -115,13 +121,15 @@ class InferenceHandler(BaseHTTPRequestHandler):
 
             # Validate completeness of every record in the (now-normalised) batch
             # before any of it reaches pandas/XGBoost. A record is incomplete if a
-            # required feature is missing entirely or explicitly null.
+            # required feature is missing entirely or explicitly null. Coercing it to
+            # a placeholder would silently reintroduce the substitution bug the
+            # backend was changed to remove, so the request is rejected instead.
             offending = []
             for idx, item in enumerate(raw_items):
                 if not isinstance(item, dict):
                     offending.append((idx, ['<entry is not an object>']))
                     continue
-                missing = [k for k in REQUIRED if item.get(k) is None]
+                missing = missing_required(item)
                 if missing:
                     offending.append((idx, missing))
 
@@ -140,31 +148,9 @@ class InferenceHandler(BaseHTTPRequestHandler):
                 return
 
             try:
-                # Prepare DataFrame strictly conforming to canonical feature columns.
-                # REQUIRED features are already guaranteed non-null by the check above,
-                # so this fill only ever applies to OPTIONAL (historical) features that
-                # are legitimately absent/null (e.g. a first-ever detection at a
-                # coordinate has no history) — it does not mask the validation.
-                df = pd.DataFrame(raw_items)
-                for col in feature_names:
-                    if col not in df.columns:
-                        df[col] = 0.0
-                    elif col == 'days_since_last_detection':
-                        # Deliberately NOT filled with 0.0. Zero would mean "last
-                        # detected today" — the opposite of "never detected before",
-                        # which is what a null actually means for a virgin
-                        # coordinate. Substituting a plausible-but-wrong value here
-                        # is exactly the bug this task exists to remove, so we pass
-                        # NaN through and let XGBoost's native missing-value
-                        # handling decide the split direction. Caveat: the current
-                        # model was trained on a synthetic dataset that contains no
-                        # NaNs, so that default split direction is untested —
-                        # revisit when the model is retrained on real data.
-                        df[col] = pd.to_numeric(df[col], errors='coerce')
-                    else:
-                        df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0.0)
-
-                df = df[feature_names]
+                # The same transform the training script applies (feature_frame.py),
+                # so optional-feature nulls reach the model exactly as they did in training.
+                df = to_model_frame(pd.DataFrame(raw_items), feature_names)
 
                 # Run XGBoost inference
                 probabilities = model.predict_proba(df)

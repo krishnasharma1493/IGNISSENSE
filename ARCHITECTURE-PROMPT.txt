@@ -1,0 +1,248 @@
+You are helping me build the "Technical Approach / Architecture" slide for a Smart India
+Hackathon 2026 presentation. I will give you the complete, factual description of a system
+that is already built and running. Read all of it, then produce the deliverables listed at
+the end.
+
+Everything below is verified against the actual source code and a live run. Do not add
+components that are not listed. Do not invent metrics.
+
+=======================================================================
+PROJECT
+=======================================================================
+Name: IGNISSENSE
+Event: Smart India Hackathon 2026, Problem Statement 26162
+One line: An AI-enabled GIS platform that ingests NASA FIRMS satellite thermal anomalies
+over India, enriches them with OpenStreetMap spatial context, classifies them into six
+thermal-event classes with an XGBoost model, and surfaces them on a MapLibre dashboard.
+Primary demo region is Delhi NCR. Ingestion runs India-wide.
+
+=======================================================================
+DEPLOYMENT SHAPE — three independent services
+=======================================================================
+1. Backend      Node.js + Express 5 + TypeScript, port 5001
+2. ML service   Python, standard-library http.server (no Flask/FastAPI), port 8000
+3. Frontend     React 19 + Vite + TypeScript, port 5173
+
+The backend calls the ML service over HTTP. Nothing imports the model in-process. This
+separation is deliberate: the model can be retrained, restarted or replaced without
+touching the API.
+
+Datastore: MongoDB Atlas via Mongoose. Collections: hotspots, classifications, alerts,
+osm_features, osmtiles, facilities, ingestionlogs, geocode cache.
+
+=======================================================================
+STAGE 1 — INGESTION (NASA FIRMS)
+=======================================================================
+Source: NASA FIRMS area API, CSV over HTTPS, authenticated with a MAP_KEY.
+Four sensors polled every cycle:
+  - VIIRS_SNPP_NRT
+  - VIIRS_NOAA20_NRT
+  - VIIRS_NOAA21_NRT
+  - MODIS_NRT
+Coverage: India bounding box 68.0W to 97.5E, 6.5S to 37.5N.
+Cadence: one poll cycle every 5 minutes.
+Day range: the live API accepts 1 to 5 days only; requests above 5 are rejected with
+HTTP 400. This ceiling is enforced client-side before the request is made.
+
+Restart recovery: on boot the system reads the last successful ingestion log, computes how
+long it was down, and requests a wider window to backfill the gap, clamped to the 5-day
+ceiling.
+
+Overlap guard: a cycle can outlast its own interval (an India-wide backfill was measured at
+692 seconds against a 300-second timer). The scheduler drops a tick while a run is still in
+flight rather than stacking concurrent pulls against a quota of 5000 transactions per
+10 minutes.
+
+Normalisation: VIIRS reports bright_ti4 / bright_ti5; MODIS reports brightness /
+bright_t31. These are reconciled into one schema at this stage. The raw CSV row is retained
+on each record for traceability.
+
+Deduplication: two layers. In-batch, on a key of rounded coordinates plus timestamp plus
+satellite plus instrument. In the database, a unique compound index on
+(location.coordinates, detectedAt, satellite, instrument). Re-polling the same window is
+expected and cheap; a duplicate-key collision is counted as a duplicate, not an error.
+
+Provenance: every sensor run writes an IngestionLog row with status SUCCESS, PARTIAL or
+FAILED plus records received / accepted / stored / rejected / duplicates. PARTIAL means the
+window was fetched but some records failed to store or classify.
+
+=======================================================================
+STAGE 2 — SPATIAL ENRICHMENT (OpenStreetMap)
+=======================================================================
+Source: Overpass API.
+India is split into 3-degree by 3-degree tiles. Each tile is pulled one at a time and its
+state tracked in an osmtiles collection as pending, completed or failed, so extraction is
+resumable and retryable rather than all-or-nothing.
+
+Raw OSM tags are mapped through a single taxonomy module into nine bounded categories:
+industrial, oil_gas, mining, power, forest, agriculture, urban, water, other.
+Geometry is indexed with a 2dsphere index for radius queries.
+
+For each detection the enrichment step resolves: nearest industrial facility and its
+distance, facility type, inferred land cover, and nearby feature counts.
+
+Honest coverage handling: where OSM tiles have not yet been extracted, enrichment returns
+an explicit "no coverage" result. It does NOT substitute a placeholder distance or a
+default facility type.
+
+=======================================================================
+STAGE 3 — FEATURE EXTRACTION
+=======================================================================
+Beyond OSM context, the backend computes spatiotemporal features with geospatial queries
+against its own detection history:
+  - spatial cluster density: other detections within 3 km in the preceding 72 hours
+  - historical recurrence: prior detections within 1.5 km across all stored history
+  - historical mean FRP and its standard deviation at that location
+  - FRP z-score against that local baseline
+  - days since the last detection at that location
+
+Canonical 14-feature vector, the train/serve contract:
+  frp, brightness, brightness_ti5, temp_delta_ti4_ti5, confidence, is_night,
+  facility_distance_m, facility_type_encoded, landcover_encoded,
+  nearby_cluster_count_3km, historical_recurrence_1_5km, historical_mean_frp,
+  frp_z_score, days_since_last_detection
+
+Ten of these are REQUIRED. The four historical ones are OPTIONAL, because a first-ever
+detection at a coordinate genuinely has no history — that is a real observation, not
+missing data, and it travels as an explicit null.
+
+=======================================================================
+STAGE 4 — THE COMPLETENESS GATE  (this is a key differentiator)
+=======================================================================
+Before any inference call, the vector is checked. Absence is represented as null and is
+never filled with a plausible-looking number. A detection can end in one of three states:
+
+  classified                          — every required feature resolved AND the model
+                                        answered. This is the only state that carries a
+                                        prediction.
+  unclassified_insufficient_features  — a required feature could not be measured, usually
+                                        because OSM coverage has not been extracted there.
+                                        No inference call is made at all.
+  unclassified_model_unavailable      — features were complete, the call was made, and the
+                                        inference service did not answer. No prediction is
+                                        fabricated.
+
+Rationale to convey: saying "uncertain" would imply the model looked and was unsure. It
+never ran. The system refuses to present a non-answer as a verdict. Unclassified detections
+are drawn on the map as hollow achromatic rings, never in a class colour, and they are
+excluded from class distribution counts and from alert generation.
+
+=======================================================================
+STAGE 5 — INFERENCE
+=======================================================================
+Model: XGBoost multi-class classifier, framework XGBoost 3.4.1, served from a joblib
+artifact by a Python standard-library HTTP service. Endpoint POST /predict, plus /health.
+The service independently rejects an incomplete feature vector with HTTP 422 and an
+INCOMPLETE_FEATURES code, so the gate is enforced on both sides of the wire.
+
+Six output classes:
+  industrial_fire, gas_flare, wildfire, agricultural_burning,
+  mining_thermal_activity, other_or_uncertain
+
+IMPORTANT AND NON-NEGOTIABLE: this model is currently trained on a synthetic data
+generator, not on real FIRMS or OSM records. Do NOT write "trained on NASA FIRMS data" or
+anything similar anywhere in the diagram. Do NOT put accuracy, F1 or precision numbers on
+the diagram. Label it simply as an XGBoost multi-class classifier. The architecture is what
+is being presented, not model performance.
+
+=======================================================================
+STAGE 6 — SCORING, ALERTS AND EXPLAINABILITY
+=======================================================================
+Two scores are computed deterministically in TypeScript, independent of the model:
+  persistenceScore — from repeat detections within 1.5 km over time
+  anomalyScore     — from FRP z-score deviation, sudden appearance, and industrial
+                     proximity. Not computed at all when FRP was not reported.
+
+Alerting is rule-based, not classifier-based, so it is fully auditable:
+  raise when anomalyScore >= 0.65 AND nearest facility distance <= 1500 m
+  severity: critical at >= 0.80, high at >= 0.65
+  an unclassified detection never raises an alert
+
+Explainability: each classification carries an evidence list generated from the actual
+extracted features — facility name and distance, observed FRP and brightness with the
+sensor that reported them, historical overpass count and baseline, sigma deviation, land
+cover. A value the sensor did not report is printed as "not reported" rather than as a
+default.
+
+=======================================================================
+STAGE 7 — API AND FRONTEND
+=======================================================================
+Backend hardening: helmet, CORS allow-list, rate limiting at 500 requests per 15 minutes,
+zod validation. Every response uses the envelope { success, data?, error? }.
+
+Route groups under /api/v1:
+  system/status, hotspots, facilities, classifications, alerts, ingestion, analytics,
+  osm, geocode
+
+Reverse geocoding: OpenStreetMap Nominatim, throttled to the policy limit of one request
+per second and cached in MongoDB, so a detection resolves to a real place name.
+
+Frontend: React 19, Vite, TypeScript, TanStack Query for server state, MapLibre GL for the
+map, Tailwind CSS v4. The map renders a heatmap density layer at national zoom and
+individual detection points as you zoom in, with class colour reserved for classified
+detections only.
+
+Operational honesty: the backend refuses to start against an ephemeral in-memory database
+unless explicitly permitted, so a demo can never silently serve fake data as if it were
+live. System status reports the last successful poll separately from the last poll attempt,
+so an outage shows as a widening gap rather than as silence.
+
+=======================================================================
+MEASURED SCALE FROM A LIVE RUN
+=======================================================================
+These are real observed numbers, safe to reference:
+  9,251 detections stored
+  8,526 classifications
+  55,253 OpenStreetMap features indexed
+  10 open alerts
+  one backfill cycle: 5,488 records fetched, 2,155 new stored, 3,333 duplicates rejected
+
+=======================================================================
+WHAT NOT TO INCLUDE
+=======================================================================
+Do not add any of the following, because they are not part of this system: Kafka, Redis,
+Docker, Kubernetes, Airflow, Spark, AWS or Azure or GCP services, a message queue, a
+microservice mesh, blockchain, or any "big data" layer. The stack is exactly three
+services plus MongoDB Atlas plus three external APIs (NASA FIRMS, Overpass, Nominatim).
+
+=======================================================================
+DELIVERABLE 1 — THE DIAGRAM IMAGE
+=======================================================================
+Generate a single technical architecture diagram image, optimised to be judged by a panel
+of Smart India Hackathon evaluators who will see it projected on a screen for roughly
+sixty seconds while I speak.
+
+Judging-oriented requirements:
+  - 16:9 landscape, designed to stay legible when projected and when printed greyscale.
+  - Left-to-right pipeline flow in clearly labelled stages:
+      External Sources -> Ingestion and Dedup -> OSM Spatial Enrichment ->
+      Feature Extraction -> Completeness Gate -> XGBoost Inference ->
+      Scoring and Rule-Based Alerts -> REST API -> MapLibre Dashboard
+  - Show the three services as three visually distinct bands or lanes, each labelled with
+    its technology and port, so the separation of concerns is obvious at a glance.
+  - Show MongoDB Atlas as a persistence layer beneath the pipeline with arrows from the
+    stages that write to it.
+  - Show the three external APIs entering from the left edge, clearly marked as external.
+  - Make the Completeness Gate a visually prominent decision point with its three labelled
+    outcomes branching out. This is the intellectual core of the design and judges should
+    see it without being told.
+  - Include a small callout strip along the bottom with four short differentiators:
+      "Three-state outcome: never fabricates a verdict"
+      "Dual-layer deduplication with a unique index"
+      "Resumable tile-based OSM extraction"
+      "Rule-based, fully auditable alerting"
+  - Restrained professional palette, at most three accent colours plus neutrals. High
+    contrast. Flat vector style. No 3D, no glossy gradients, no stock clip art, no
+    decorative icons that carry no meaning.
+  - Every label must be short and spelled correctly. Prefer fewer words at a larger size
+    over dense annotation. No paragraph text inside boxes.
+
+DELIVERABLE 2 — a text-accurate fallback
+Because image generation frequently garbles small text, also give me the same diagram as
+clean Mermaid or Graphviz DOT source that I can render myself with guaranteed-correct
+labels.
+
+DELIVERABLE 3 — speaker notes
+Six to eight bullet points I can say aloud while this slide is on screen, each one
+sentence, aimed at a technical judge. Lead with what is architecturally unusual rather
+than with what is standard.
