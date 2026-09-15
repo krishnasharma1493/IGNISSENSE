@@ -49,7 +49,7 @@ const PRESET_REGIONS: Array<{ name: string; aliases: string[]; coordinates: [num
 
 export function parseCoordinates(query: string): [number, number] | null {
   const cleaned = query.trim().replace(/[°NSEWnsew]/g, '');
-  
+
   // Format: "lat, lng" or "lat lng" (e.g., 28.6139, 77.2090 or 77.2090, 28.6139)
   const match = cleaned.match(/^([+-]?\d+(?:\.\d+)?)[,\s]+([+-]?\d+(?:\.\d+)?)$/);
   if (!match) return null;
@@ -102,7 +102,7 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
         results.push({
           id: `coord-${parsedCoords[0]}-${parsedCoords[1]}`,
           type: 'coordinate',
-          title: `Fly to Coordinates`,
+          title: `Go to these coordinates`,
           subtitle: `${parsedCoords[1].toFixed(4)}° N, ${parsedCoords[0].toFixed(4)}° E`,
           coordinates: parsedCoords,
           icon: 'location_searching',
@@ -120,10 +120,10 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
             id: `region-${region.name}`,
             type: 'region',
             title: region.name,
-            subtitle: `Geospatial Focus Area • ${region.coordinates[1].toFixed(4)}° N, ${region.coordinates[0].toFixed(4)}° E`,
+            subtitle: `Region · ${region.coordinates[1].toFixed(4)}° N, ${region.coordinates[0].toFixed(4)}° E`,
             coordinates: region.coordinates,
             icon: 'domain',
-            category: 'Regions & Industrial Zones',
+            category: 'Regions',
             data: { zoom: region.zoom },
           });
         }
@@ -156,11 +156,11 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
           results.push({
             id: h._id,
             type: 'hotspot',
-            title: `Thermal Hotspot ${h._id.slice(-6).toUpperCase()}`,
-            subtitle: `${(classification?.predictedClass || 'Thermal Observation').replace(/_/g, ' ')} • FRP: ${h.frp?.toFixed(1) || '0'} MW • ${conf} Conf`,
+            title: `Detection HS-${h._id.slice(-6).toUpperCase()}`,
+            subtitle: `${(classification?.predictedClass || 'not_classified').replace(/_/g, ' ')} · ${h.frp?.toFixed(1) || '0'} MW · ${conf} confidence`,
             coordinates: [lng, lat],
             icon: 'local_fire_department',
-            category: 'Thermal Events (Hotspots)',
+            category: 'Fire detections',
             data: { hotspotId: h._id, zoom: 14 },
           });
           hotspotMatches++;
@@ -180,11 +180,11 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
           results.push({
             id: fac._id,
             type: 'facility',
-            title: fac.name || 'Industrial Facility',
-            subtitle: `${(fac.facilityType || 'Industrial').replace(/_/g, ' ')} • OSM Infrastructure`,
+            title: fac.name || 'Unnamed facility',
+            subtitle: `${(fac.facilityType || 'Industrial site').replace(/_/g, ' ')} · OpenStreetMap`,
             coordinates: [lng, lat],
             icon: 'factory',
-            category: 'Industrial Facilities (OSM)',
+            category: 'Facilities',
             data: { facilityId: fac._id, zoom: 14.5 },
           });
           facilityMatches++;

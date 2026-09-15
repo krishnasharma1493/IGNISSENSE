@@ -1,3 +1,5 @@
+import { stagger } from '../../components/motion/motion';
+
 export interface TrendPoint {
   date: string;
   count: number;
@@ -20,7 +22,7 @@ export default function TrendChart({
   if (points.length === 0) {
     return (
       <div className="grid h-[180px] place-items-center rounded-md border border-dashed border-hairline-strong">
-        <p className="text-[12px] text-ink-3">No detections in this window.</p>
+        <p className="text-[12px] text-ink-3">No fires detected in this period.</p>
       </div>
     );
   }
@@ -49,18 +51,24 @@ export default function TrendChart({
           ))}
 
           <div className="absolute inset-0 flex items-end gap-[3px]">
-            {points.map((p) => {
+            {points.map((p, i) => {
               const h = Math.max(2, (p.count / maxCount) * 100);
               return (
                 // The column must be full height for the bar's percentage
                 // height to resolve against something; against an auto-height
                 // parent it collapses to the minimum and the chart reads empty.
                 <div key={p.date} className="group relative flex h-full flex-1 items-end">
+                  {/* Full height, scaled down to the value: the bar grows in
+                      and follows data changes on the compositor, without
+                      re-laying-out the column. */}
                   <div
-                    className="w-full rounded-t-[2px] bg-accent transition-opacity hover:opacity-80"
-                    style={{ height: `${h}%`, minHeight: 2 }}
+                    className="chart-bar h-full w-full rounded-t-[2px] bg-accent hover:opacity-80"
+                    style={stagger(i, { transform: `scaleY(${h / 100})` })}
                   />
-                  <span className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1 hidden -translate-x-1/2 whitespace-nowrap rounded-md border border-hairline bg-white px-2 py-1 text-[10px] shadow-md group-hover:block">
+                  <span
+                    className="chart-tip pointer-events-none absolute bottom-full left-1/2 z-10 mb-1 hidden -translate-x-1/2 whitespace-nowrap rounded-md border border-hairline bg-white px-2 py-1 text-[10px] shadow-md group-hover:block"
+                    aria-hidden="true"
+                  >
                     <span className="num block font-medium text-ink">{p.date}</span>
                     <span className="num block text-ink-2">{p.count} detections</span>
                     <span className="num block text-ink-3">mean {p.meanFrp.toFixed(1)} MW</span>
@@ -73,7 +81,7 @@ export default function TrendChart({
           {/* Mean FRP overlay */}
           {showFrp ? (
             <svg
-              className="pointer-events-none absolute inset-0 h-full w-full"
+              className="chart-wipe pointer-events-none absolute inset-0 h-full w-full"
               viewBox="0 0 100 100"
               preserveAspectRatio="none"
               aria-hidden="true"

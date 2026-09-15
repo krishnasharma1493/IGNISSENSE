@@ -21,6 +21,7 @@ import {
   stripAlertPrefix,
   titleise,
 } from '../../lib/format';
+import { revealRef } from '../../components/motion/motion';
 
 interface AlertsPageProps {
   onInvestigate: (hotspotId: string) => void;
@@ -120,13 +121,12 @@ export default function AlertsPage({ onInvestigate }: AlertsPageProps) {
 
   return (
     <div className="mx-auto flex h-[calc(100vh-100px)] max-w-[1400px] flex-col gap-3">
-      <header className="flex flex-wrap items-end justify-between gap-3">
+      <header ref={revealRef} data-reveal className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-[22px] font-semibold tracking-tight text-ink">Alerts</h1>
           <p className="mt-0.5 max-w-[62ch] text-[12px] leading-relaxed text-ink-2">
-            Rule-generated candidates raised where anomaly score and facility proximity cross
-            threshold. These are decision support for an analyst to triage — none of them is a
-            confirmed incident.
+            Unusual fires close to industrial sites, flagged automatically for a closer look.
+            Confirm each one on the ground before acting.
           </p>
         </div>
 
@@ -137,7 +137,7 @@ export default function AlertsPage({ onInvestigate }: AlertsPageProps) {
             aria-label="Filter by status"
             className="cursor-pointer rounded-md border border-hairline bg-white/60 px-2 py-1 text-[12px] text-ink"
           >
-            <option value="all">All statuses</option>
+            <option value="all">Any status</option>
             <option value="open">Open</option>
             <option value="acknowledged">Investigating</option>
             <option value="resolved">Resolved</option>
@@ -148,7 +148,7 @@ export default function AlertsPage({ onInvestigate }: AlertsPageProps) {
             aria-label="Filter by severity"
             className="cursor-pointer rounded-md border border-hairline bg-white/60 px-2 py-1 text-[12px] text-ink"
           >
-            <option value="all">All severities</option>
+            <option value="all">Any severity</option>
             <option value="critical">Critical</option>
             <option value="high">High</option>
             <option value="medium">Medium</option>
@@ -161,17 +161,21 @@ export default function AlertsPage({ onInvestigate }: AlertsPageProps) {
             className="cursor-pointer rounded-md border border-hairline bg-white/60 px-2 py-1 text-[12px] text-ink"
           >
             <option value="latest">Newest first</option>
-            <option value="severity">Severity</option>
-            <option value="anomaly">Anomaly score</option>
+            <option value="severity">Most severe first</option>
+            <option value="anomaly">Most unusual first</option>
           </select>
         </div>
       </header>
 
       <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(0,1fr)_400px]">
         {/* ── List ─────────────────────────────────────────────────────────── */}
-        <div className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-hairline bg-white/60">
+        <div
+          ref={revealRef}
+          data-reveal
+          className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-hairline bg-white/60"
+        >
           <div className="flex items-center justify-between border-b border-hairline px-3.5 py-2">
-            <h2 className="text-[12px] font-semibold text-ink">Candidates</h2>
+            <h2 className="text-[12px] font-semibold text-ink">Flagged fires</h2>
             <span className="num text-[11px] text-ink-3">
               {visible.length} of {alerts.length}
             </span>
@@ -182,24 +186,26 @@ export default function AlertsPage({ onInvestigate }: AlertsPageProps) {
               <li className="px-3.5 py-6 text-[12px] text-ink-3">Loading alerts…</li>
             ) : visible.length === 0 ? (
               <li className="px-3.5 py-6 text-[12px] text-ink-3">
-                No alerts match these filters.
+                {alerts.length === 0
+                  ? 'No alerts right now. New ones appear here as satellites report unusual fires near facilities.'
+                  : 'No alerts match these filters. Try widening the status or severity.'}
               </li>
             ) : (
               visible.map((a) => {
                 const { id, hotspot, classification } = resolve(a);
                 const isActive = selected?._id === a._id;
                 return (
-                  <li key={a._id}>
+                  <li key={a._id} ref={revealRef} data-reveal="fade">
                     <button
                       type="button"
                       onClick={() => setSelectedId(a._id)}
                       aria-current={isActive ? 'true' : undefined}
-                      className={`flex w-full flex-col gap-1.5 border-b border-hairline px-3.5 py-2.5 text-left transition-colors ${
+                      className={`row-accent flex w-full flex-col gap-1.5 border-b border-hairline px-3.5 py-2.5 text-left transition-colors ${
                         isActive ? 'bg-accent-soft' : 'hover:bg-[rgba(15,18,22,0.04)]'
                       }`}
                     >
                       <div className="flex flex-wrap items-center gap-1.5">
-                        <SeverityChip severity={a.severity} />
+                        <SeverityChip severity={a.severity} live={a.status === 'open'} />
                         <StatusChip status={a.status} />
                         {classification?.predictedClass ? (
                           <ClassChip cls={classification.predictedClass} />
@@ -238,24 +244,36 @@ export default function AlertsPage({ onInvestigate }: AlertsPageProps) {
         </div>
 
         {/* ── Detail ───────────────────────────────────────────────────────── */}
-        <aside className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-hairline bg-white/60">
+        <aside
+          ref={revealRef}
+          data-reveal
+          className="relative flex min-h-0 flex-col overflow-hidden rounded-lg border border-hairline bg-white/60"
+        >
+          {/* An open critical alert gets a red inner edge that breathes in once
+              per selection and then holds. */}
+          {selected && selected.severity === 'critical' && selected.status === 'open' ? (
+            <span key={`glow-${selected._id}`} className="critical-glow" aria-hidden="true" />
+          ) : null}
           {!selected || !detail ? (
             <div className="grid flex-1 place-items-center p-6 text-center">
-              <p className="text-[12px] text-ink-3">Select an alert to see its evidence.</p>
+              <p className="text-[12px] text-ink-3">Pick an alert to see why it was flagged.</p>
             </div>
           ) : (
             <>
-              <header className="flex items-start justify-between gap-2 border-b border-hairline px-3.5 py-3">
+              <header
+                key={`head-${selected._id}`}
+                className="tab-enter flex items-start justify-between gap-2 border-b border-hairline px-3.5 py-3"
+              >
                 <div className="min-w-0">
                   <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
-                    <SeverityChip severity={selected.severity} />
+                    <SeverityChip severity={selected.severity} live={selected.status === 'open'} />
                     <CandidateChip />
                   </div>
                   <h2 className="num text-[14px] font-semibold text-ink">
                     {detail.id.slice(-6).toUpperCase()}
                   </h2>
                   <p className="num mt-0.5 text-[11px] text-ink-3">
-                    Raised {formatUtc(selected.createdAt)}
+                    Flagged {formatUtc(selected.createdAt)}
                   </p>
                 </div>
                 <button
@@ -266,13 +284,16 @@ export default function AlertsPage({ onInvestigate }: AlertsPageProps) {
                   <span className="material-symbols-outlined" style={{ fontSize: 14 }} aria-hidden="true">
                     travel_explore
                   </span>
-                  Investigate
+                  View on map
                 </button>
               </header>
 
-              <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-3.5">
+              <div
+                key={`body-${selected._id}`}
+                className="tab-enter flex flex-1 flex-col gap-4 overflow-y-auto p-3.5"
+              >
                 {/* Triage */}
-                <Section title="Triage" kind="heuristic">
+                <Section title="Status" kind="heuristic">
                   <div className="flex flex-wrap items-center gap-1.5">
                     <StatusChip status={selected.status} />
                   </div>
@@ -305,7 +326,7 @@ export default function AlertsPage({ onInvestigate }: AlertsPageProps) {
 
                 {/* Observed */}
                 <Section
-                  title="Thermal signal"
+                  title="Satellite reading"
                   kind="observed"
                   meta={detail.hotspot ? `${detail.hotspot.instrument} · ${detail.hotspot.satellite}` : undefined}
                 >
@@ -313,7 +334,7 @@ export default function AlertsPage({ onInvestigate }: AlertsPageProps) {
                     <>
                       <div className="grid grid-cols-2 gap-2">
                         <Metric
-                          label="FRP"
+                          label="Fire power"
                           value={detail.hotspot.frp?.toFixed(1)}
                           unit="MW"
                           tone="var(--color-cls-industrial-ink)"
@@ -325,25 +346,26 @@ export default function AlertsPage({ onInvestigate }: AlertsPageProps) {
                         />
                       </div>
                       <dl className="divide-y divide-hairline">
-                        <Field label="Acquired" value={formatUtc(detail.hotspot.detectedAt)} numeric />
+                        <Field label="Detected" value={formatUtc(detail.hotspot.detectedAt)} numeric />
                         <Field
-                          label="Position"
+                          label="Location"
                           value={`${detail.hotspot.location.coordinates[1].toFixed(4)}, ${detail.hotspot.location.coordinates[0].toFixed(4)}`}
                           numeric
                         />
-                        <Field label="FIRMS confidence" value={formatFirmsConfidence(detail.hotspot.confidence)} />
+                        <Field label="Detection confidence" value={formatFirmsConfidence(detail.hotspot.confidence)} />
                       </dl>
                     </>
                   ) : (
-                    <p className="text-[11px] text-ink-3">
-                      The detection behind this alert is outside the currently loaded set.
+                    <p className="text-[11px] leading-relaxed text-ink-3">
+                      This detection isn&rsquo;t in the data loaded here. Use View on map to see its
+                      full details.
                     </p>
                   )}
                 </Section>
 
                 {/* Model */}
                 <Section
-                  title="Classification"
+                  title="Fire type"
                   kind="model"
                   meta={detail.classification?.modelVersion}
                 >
@@ -375,15 +397,15 @@ export default function AlertsPage({ onInvestigate }: AlertsPageProps) {
                       </div>
                     </>
                   ) : (
-                    <p className="text-[11px] text-ink-3">No classification recorded.</p>
+                    <p className="text-[11px] text-ink-3">No prediction for this detection.</p>
                   )}
                 </Section>
 
                 {/* Context */}
-                <Section title="Facility context" kind="context">
+                <Section title="Nearest facility" kind="context">
                   <dl className="divide-y divide-hairline">
                     <Field
-                      label="Nearest feature"
+                      label="Name"
                       value={
                         detail.classification?.nearestFacilityId &&
                         typeof detail.classification.nearestFacilityId === 'object'
@@ -413,7 +435,7 @@ export default function AlertsPage({ onInvestigate }: AlertsPageProps) {
 
                 {/* Evidence */}
                 {detail.classification?.explanation?.length ? (
-                  <Section title="Evidence" kind="model">
+                  <Section title="Why it was flagged" kind="model">
                     <ul className="flex flex-col gap-1.5">
                       {detail.classification.explanation.map((line, i) => (
                         <li
@@ -435,12 +457,12 @@ export default function AlertsPage({ onInvestigate }: AlertsPageProps) {
                 ) : null}
 
                 <p className="rounded-md border border-hairline bg-[rgba(15,18,22,0.035)] px-2.5 py-2 text-[11px] leading-relaxed text-ink-3">
-                  Severity is assigned by rule from the anomaly score and facility distance, not by
-                  the classifier. Confirmation requires ground verification.
+                  Severity reflects how unusual the heat is and how close it is to a facility — it
+                  doesn&rsquo;t depend on the fire-type prediction. Always confirm on the ground.
                   {detail.classification?.predictedClass ? (
                     <>
                       {' '}
-                      Class colour key:{' '}
+                      Predicted type:{' '}
                       <span style={{ color: CLASS_CONFIG[detail.classification.predictedClass].ink }}>
                         {CLASS_CONFIG[detail.classification.predictedClass].label}
                       </span>

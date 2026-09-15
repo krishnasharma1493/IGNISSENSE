@@ -59,11 +59,17 @@ const SEVERITY_TONE: Record<Severity, { fg: string; bg: string; bd: string }> = 
   low: { fg: '#1B6B3A', bg: 'rgba(27,107,58,0.10)', bd: 'rgba(27,107,58,0.26)' },
 };
 
-export function SeverityChip({ severity }: { severity: Severity }) {
+/**
+ * `live` marks an alert that still needs a response; on a critical one the chip
+ * pulses a ring a few times when it appears, then settles.
+ */
+export function SeverityChip({ severity, live = false }: { severity: Severity; live?: boolean }) {
   const tone = SEVERITY_TONE[severity] ?? SEVERITY_TONE.low;
   return (
     <span
-      className="inline-flex items-center rounded-md border px-1.5 py-[2px] text-[10px] font-semibold uppercase tracking-[0.05em]"
+      className={`inline-flex items-center rounded-md border px-1.5 py-[2px] text-[10px] font-semibold uppercase tracking-[0.05em] ${
+        live && severity === 'critical' ? 'sev-live' : ''
+      }`}
       style={{ color: tone.fg, backgroundColor: tone.bg, borderColor: tone.bd }}
     >
       {severity}
@@ -109,12 +115,12 @@ export function CandidateChip() {
   return (
     <span
       className="inline-flex items-center gap-1 rounded-md border border-hairline bg-[rgba(15,18,22,0.05)] px-1.5 py-[2px] text-[10px] font-semibold uppercase tracking-[0.07em] text-ink-2"
-      title="Machine-generated decision support. Not a confirmed incident."
+      title="Predicted by the AI model, not yet confirmed. Verify on the ground before acting."
     >
       <span className="material-symbols-outlined" style={{ fontSize: 11 }} aria-hidden="true">
         smart_toy
       </span>
-      AI candidate
+      AI prediction
     </span>
   );
 }
@@ -129,7 +135,7 @@ export function NotClassifiedChip() {
   return (
     <span
       className="inline-flex items-center gap-1 rounded-md border border-hairline bg-[rgba(15,18,22,0.05)] px-1.5 py-[2px] text-[10px] font-semibold uppercase tracking-[0.07em] text-ink-2"
-      title="The classifier did not run: required spatial features could not be measured."
+      title="No fire type yet — the model needs nearby mapped sites to compare against, and none were found."
     >
       <span className="material-symbols-outlined" style={{ fontSize: 11 }} aria-hidden="true">
         layers_clear

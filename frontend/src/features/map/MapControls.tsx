@@ -70,7 +70,7 @@ export default function MapControls({
       <span className="h-4 w-px bg-hairline" aria-hidden="true" />
 
       <Segmented<RenderMode>
-        label="Marker colouring"
+        label="Marker colours"
         value={renderMode}
         onChange={onRenderModeChange}
         options={[
@@ -78,13 +78,13 @@ export default function MapControls({
             value: 'firms',
             label: 'FIRMS',
             icon: 'local_fire_department',
-            title: 'Uniform red, as NASA FIRMS renders thermal anomalies',
+            title: 'Show every fire in red, the way NASA FIRMS does',
           },
           {
             value: 'classified',
-            label: 'Classified',
+            label: 'By fire type',
             icon: 'category',
-            title: 'Colour each detection by its predicted class',
+            title: 'Colour each fire by its predicted type',
           },
         ]}
       />

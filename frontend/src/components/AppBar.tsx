@@ -142,8 +142,8 @@ export default function AppBar({
   };
 
   const services = [
-    { label: 'NASA FIRMS', ok: Boolean(status?.firmsConnected) },
-    { label: 'Inference service', ok: status?.modelStatus === 'ready' },
+    { label: 'NASA FIRMS satellite feed', ok: Boolean(status?.firmsConnected) },
+    { label: 'Fire-type model', ok: status?.modelStatus === 'ready' },
     { label: 'Database', ok: status?.databaseStatus === 'connected' },
   ];
   const allOk = services.every((s) => s.ok);
@@ -189,8 +189,10 @@ export default function AppBar({
                 {t.label}
               </span>
               {t.id === 'alerts' && openAlertCount > 0 ? (
+                // Keyed on the count, so the badge pops when a new alert arrives.
                 <span
-                  className="num rounded-full bg-danger-soft px-1.5 py-px text-[10px] font-semibold text-danger"
+                  key={openAlertCount}
+                  className="badge-pop num rounded-full bg-danger-soft px-1.5 py-px text-[10px] font-semibold text-danger"
                   aria-hidden="true"
                 >
                   {openAlertCount}
@@ -221,8 +223,8 @@ export default function AppBar({
             }}
             onFocus={() => setSearchOpen(true)}
             onKeyDown={(e) => e.key === 'Enter' && submit()}
-            placeholder="Coordinates, facility, region…"
-            aria-label="Search coordinates, facilities and regions"
+            placeholder="Search places, facilities or coordinates"
+            aria-label="Search places, facilities or coordinates"
             className="w-full bg-transparent text-[12px] text-ink outline-none placeholder:text-ink-4"
           />
           {searchQuery ? (
@@ -246,11 +248,11 @@ export default function AppBar({
         {searchOpen && searchQuery.trim() ? (
           <Panel
             level="popover"
-            className="arrive absolute left-0 right-0 top-full z-[60] mt-1.5 max-h-[60vh] overflow-y-auto rounded-lg py-1"
+            className="pop-in absolute left-0 right-0 top-full z-[60] mt-1.5 max-h-[60vh] overflow-y-auto rounded-lg py-1"
           >
             {results.length === 0 ? (
               <p className="px-3 py-3 text-[11px] text-ink-3">
-                Nothing matched. Try coordinates like{' '}
+                No matches. Try a region like Faridabad, a facility name, or coordinates like{' '}
                 <span className="num text-ink-2">28.6139, 77.2090</span>.
               </p>
             ) : (
@@ -288,7 +290,7 @@ export default function AppBar({
           onClick={() => setStatusOpen((v) => !v)}
           className="ctl dock-item h-7 px-2.5 text-[11px]"
           aria-expanded={statusOpen}
-          aria-label={`Pipeline status: near real-time data, ${allOk ? 'all services healthy' : 'attention required'}`}
+          aria-label={`System status: ${allOk ? 'all systems running' : 'something needs attention'}`}
         >
           <DockPill />
           <span className="dock-content">
@@ -296,14 +298,14 @@ export default function AppBar({
               className={`h-1.5 w-1.5 rounded-full ${allOk ? 'bg-ok live-dot' : 'bg-warn'}`}
               aria-hidden="true"
             />
-            <span className="hidden lg:inline">{allOk ? 'Near real-time' : 'Degraded'}</span>
+            <span className="hidden lg:inline">{allOk ? 'Live' : 'Needs attention'}</span>
           </span>
         </button>
 
         {statusOpen ? (
-          <Panel level="popover" className="arrive absolute right-0 top-full z-[60] mt-1.5 w-60 rounded-lg p-3">
+          <Panel level="popover" className="pop-in-end absolute right-0 top-full z-[60] mt-1.5 w-64 rounded-lg p-3">
             <h2 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.06em] text-ink-3">
-              Pipeline
+              System status
             </h2>
             <ul className="mb-2 flex flex-col gap-1">
               {services.map((s) => (
@@ -314,7 +316,7 @@ export default function AppBar({
                       className={`h-1.5 w-1.5 rounded-full ${s.ok ? 'bg-ok' : 'bg-warn'}`}
                       aria-hidden="true"
                     />
-                    {s.ok ? 'Healthy' : 'Degraded'}
+                    {s.ok ? 'Running' : 'Offline'}
                   </span>
                 </li>
               ))}
@@ -322,7 +324,7 @@ export default function AppBar({
 
             <dl className="border-t border-hairline pt-2 text-[11px]">
               <div className="flex justify-between gap-2 py-0.5">
-                <dt className="text-ink-3">Last poll</dt>
+                <dt className="text-ink-3">Last satellite update</dt>
                 <dd className="num text-ink-2">
                   {status?.lastSuccessfulPoll
                     ? new Date(status.lastSuccessfulPoll).toISOString().slice(11, 16) + ' UTC'
@@ -335,8 +337,7 @@ export default function AppBar({
               </div>
               {status?.demoMode ? (
                 <div className="mt-1.5 rounded-md bg-warn-soft px-2 py-1.5 text-[10px] leading-relaxed text-warn">
-                  Running against an in-memory database. Figures reflect seeded data, not the live
-                  store.
+                  Demo data: running on a temporary in-memory database, not the live store.
                 </div>
               ) : null}
             </dl>
@@ -350,7 +351,7 @@ export default function AppBar({
               <span className="material-symbols-outlined" style={{ fontSize: 14 }} aria-hidden="true">
                 sync
               </span>
-              {sync.isPending ? 'Polling FIRMS…' : 'Poll FIRMS now'}
+              {sync.isPending ? 'Checking for new fires…' : 'Check for new fires'}
             </button>
           </Panel>
         ) : null}

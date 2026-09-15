@@ -10,6 +10,7 @@ import AlertsPage from './features/alerts/AlertsPage';
 import { useHotspots } from './api/hooks';
 import { SearchProvider } from './context/SearchContext';
 import type { SearchResultItem } from './context/SearchContext';
+import { usePresence } from './components/motion/usePresence';
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 30_000 } },
@@ -29,6 +30,10 @@ function AppContent() {
   const [selectedHotspotId, setSelectedHotspotId] = useState<string | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
+
+  // The page overlay fades out over the map rather than vanishing; during the
+  // fade it keeps rendering the page that was open.
+  const page = usePresence(activeTab !== 'map' ? activeTab : null, 200);
 
   const { data: hotspotsData } = useHotspots({ limit: '5000' });
   const hotspots = hotspotsData?.hotspots ?? [];
@@ -128,13 +133,21 @@ function AppContent() {
         <MapPage selectedHotspotId={selectedHotspotId} onSelectHotspot={setSelectedHotspotId} />
       </div>
 
-      {activeTab !== 'map' ? (
-        <div className="absolute inset-0 z-30 overflow-y-auto bg-canvas px-6 pb-8 pt-[68px]">
-          {activeTab === 'dashboard' ? (
-            <DashboardPage onInvestigate={investigate} onOpenMap={() => setActiveTab('map')} />
-          ) : null}
-          {activeTab === 'analytics' ? <AnalyticsPage onOpenMap={() => setActiveTab('map')} /> : null}
-          {activeTab === 'alerts' ? <AlertsPage onInvestigate={investigate} /> : null}
+      {page.value ? (
+        <div
+          className={`${
+            page.exiting ? 'page-overlay-out' : 'page-overlay-in'
+          } absolute inset-0 z-30 overflow-y-auto bg-canvas px-6 pb-8 pt-[68px]`}
+          inert={page.exiting || undefined}
+        >
+          {/* Keyed on the page, so switching sections fades the new one in. */}
+          <div key={page.value} className="page-enter">
+            {page.value === 'dashboard' ? (
+              <DashboardPage onInvestigate={investigate} onOpenMap={() => setActiveTab('map')} />
+            ) : null}
+            {page.value === 'analytics' ? <AnalyticsPage onOpenMap={() => setActiveTab('map')} /> : null}
+            {page.value === 'alerts' ? <AlertsPage onInvestigate={investigate} /> : null}
+          </div>
         </div>
       ) : null}
 
@@ -159,13 +172,12 @@ function AppContent() {
                 Export detections
               </h2>
               <p className="mt-1 text-[12px] leading-relaxed text-ink-2">
-                Observed FIRMS fields only. Model classifications are excluded — they are decision
-                support, and exporting them alongside measurements invites them to be read as
-                observations.
+                Download the raw satellite readings. Fire-type predictions aren&rsquo;t included, so
+                they can&rsquo;t be mistaken for measurements.
               </p>
 
               <p className="num mt-3 rounded-md border border-hairline bg-[rgba(15,18,22,0.035)] px-2.5 py-2 text-[11px] text-ink-2">
-                {hotspots.length.toLocaleString()} detections in the current result set
+                {hotspots.length.toLocaleString()} detections ready to export
               </p>
 
               <div className="mt-3 flex flex-col gap-1.5">

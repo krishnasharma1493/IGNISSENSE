@@ -28,9 +28,9 @@ export default function FrpTrajectory({ points }: { points: TrajectoryPoint[] })
         <span className="material-symbols-outlined text-ink-4" style={{ fontSize: 18 }} aria-hidden="true">
           timeline
         </span>
-        <span className="text-[11px] font-medium text-ink-2">Single overpass at this coordinate</span>
+        <span className="text-[11px] font-medium text-ink-2">First detection at this spot</span>
         <span className="text-[10px] text-ink-3">
-          A trajectory needs at least two detections. Persistence cannot be assessed from one pass.
+          A trend appears once satellites have seen this location at least twice.
         </span>
       </div>
     );
@@ -58,9 +58,9 @@ export default function FrpTrajectory({ points }: { points: TrajectoryPoint[] })
         <svg
           viewBox={`0 0 ${W} ${H}`}
           preserveAspectRatio="none"
-          className="h-[88px] w-full overflow-visible"
+          className="chart-wipe h-[88px] w-full overflow-visible"
           role="img"
-          aria-label={`Fire radiative power across ${points.length} overpasses, ranging from ${minFrp.toFixed(
+          aria-label={`Fire power over ${points.length} satellite passes, from ${minFrp.toFixed(
             1
           )} to ${maxFrp.toFixed(1)} megawatts`}
         >
@@ -121,7 +121,7 @@ export default function FrpTrajectory({ points }: { points: TrajectoryPoint[] })
       <div className="flex items-baseline justify-between text-[10px] text-ink-3">
         <span className="num">{dayLabel(first.detectedAt)}</span>
         <span>
-          Selected pass marked in <span className="font-semibold text-accent-strong">blue</span>
+          <span className="font-semibold text-accent-strong">Blue</span> marks this detection
         </span>
         <span className="num">{dayLabel(last.detectedAt)}</span>
       </div>

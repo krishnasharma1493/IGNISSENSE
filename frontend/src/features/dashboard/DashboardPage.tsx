@@ -7,6 +7,8 @@ import type { Classification, ClassificationClass } from '../../types';
 import { ClassChip } from '../../components/ui/Chip';
 import { Card, Stat } from '../../components/ui/Card';
 import { formatUtc } from '../../lib/format';
+import CountUp from '../../components/motion/CountUp';
+import { revealRef, stagger } from '../../components/motion/motion';
 import TrendChart from './TrendChart';
 
 interface DashboardPageProps {
@@ -58,11 +60,12 @@ export default function DashboardPage({ onInvestigate, onOpenMap }: DashboardPag
   return (
     <div className="mx-auto flex max-w-[1400px] flex-col gap-4">
       {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <header className="flex flex-wrap items-end justify-between gap-3">
+      <header ref={revealRef} data-reveal className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-[22px] font-semibold tracking-tight text-ink">Thermal overview</h1>
+          <h1 className="text-[22px] font-semibold tracking-tight text-ink">Fire activity</h1>
           <p className="mt-0.5 text-[12px] text-ink-2">
-            Satellite thermal detections across India, classified and enriched with spatial context.
+            Live satellite fire detections across India, sorted by likely fire type and linked to
+            nearby infrastructure.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -80,19 +83,19 @@ export default function DashboardPage({ onInvestigate, onOpenMap }: DashboardPag
 
       {status?.demoMode ? (
         <p className="rounded-lg border border-[rgba(138,97,0,0.26)] bg-warn-soft px-3 py-2 text-[12px] text-warn">
-          The backend is running against an in-memory database. Every figure below reflects seeded
-          data rather than the live store.
+          Demo data: the backend is using a temporary in-memory database, so these numbers
+          aren&rsquo;t live.
         </p>
       ) : null}
 
       {/* ── Stats ──────────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-        <Stat label="Total detections" value={isLoading ? null : total?.toLocaleString() ?? null} />
+        <Stat label="Total detections" value={isLoading ? null : total} />
         <Stat
           label="Industrial fire"
           value={isLoading ? null : counts?.industrial_fire ?? null}
           tone={CLASS_CONFIG.industrial_fire.ink}
-          hint="Candidates, not confirmed"
+          hint="AI predictions · verify on site"
         />
         <Stat
           label="Gas flare"
@@ -100,21 +103,21 @@ export default function DashboardPage({ onInvestigate, onOpenMap }: DashboardPag
           tone={CLASS_CONFIG.gas_flare.ink}
         />
         <Stat
-          label="Persistent sources"
+          label="Recurring sites"
           value={isLoading ? null : analytics?.persistentSources ?? null}
-          hint="Recurrence-based"
+          hint="Fires seen repeatedly in one place"
         />
         <Stat
-          label="Anomalous sources"
+          label="Unusual sites"
           value={isLoading ? null : analytics?.anomalousSources ?? null}
-          hint="Deviating from baseline"
+          hint="Hotter or newer than usual for the spot"
         />
       </div>
 
       {/* ── Body ───────────────────────────────────────────────────────────── */}
       <div className="grid gap-3 lg:grid-cols-2">
         <Card
-          title="Detection volume · 7 days"
+          title="Detections · last 7 days"
           provenance="observed"
           meta={points.length ? `${points.reduce((s, p) => s + p.count, 0).toLocaleString()} detections` : undefined}
         >
@@ -127,26 +130,28 @@ export default function DashboardPage({ onInvestigate, onOpenMap }: DashboardPag
           )}
         </Card>
 
-        <Card title="Class distribution" provenance="model" meta={total ? `${total.toLocaleString()} classified` : undefined}>
+        <Card title="Fire types" provenance="model" meta={total ? `${total.toLocaleString()} detections` : undefined}>
           {isLoading ? (
             <p className="text-[12px] text-ink-3">Loading…</p>
           ) : !total ? (
-            <p className="text-[12px] text-ink-3">No classifications recorded yet.</p>
+            <p className="text-[12px] text-ink-3">No detections yet. They&rsquo;ll appear here as satellites report fires.</p>
           ) : (
             <ul className="flex flex-col gap-2.5">
-              {distribution.map(({ cls, count, pct }) => (
+              {distribution.map(({ cls, count, pct }, i) => (
                 <li key={cls} className="flex flex-col gap-1">
                   <div className="flex items-baseline justify-between gap-2">
                     <ClassChip cls={cls as ClassificationClass} />
                     <span className="num text-[11px] text-ink-2">
-                      {count.toLocaleString()}
-                      <span className="ml-1 text-ink-3">{pct.toFixed(1)}%</span>
+                      <CountUp value={count} />
+                      <span className="ml-1 text-ink-3">
+                        <CountUp value={pct} decimals={1} suffix="%" />
+                      </span>
                     </span>
                   </div>
                   <div className="h-1.5 w-full overflow-hidden rounded-full bg-[rgba(15,18,22,0.07)]">
                     <div
-                      className="h-full rounded-full"
-                      style={{ width: `${pct}%`, backgroundColor: CLASS_CONFIG[cls].ink }}
+                      className="bar-grow h-full rounded-full"
+                      style={stagger(i, { width: `${pct}%`, backgroundColor: CLASS_CONFIG[cls].ink })}
                     />
                   </div>
                 </li>
@@ -156,18 +161,23 @@ export default function DashboardPage({ onInvestigate, onOpenMap }: DashboardPag
                   six thermal-event classes above, which is why it isn't a seventh ClassChip. */}
               <li className="mt-1 flex flex-col gap-1 border-t border-dashed border-hairline pt-2.5">
                 <div className="flex items-baseline justify-between gap-2">
-                  <span className="text-[11px] font-medium text-ink-3">
-                    Not classified · no OSM coverage
+                  <span
+                    className="text-[11px] font-medium text-ink-3"
+                    title="The model couldn't run because no industrial site, mine or power plant is mapped nearby."
+                  >
+                    Not classified · no mapped sites nearby
                   </span>
                   <span className="num text-[11px] text-ink-2">
-                    {unclassifiedCount.toLocaleString()}
-                    <span className="ml-1 text-ink-3">{unclassifiedPct.toFixed(1)}%</span>
+                    <CountUp value={unclassifiedCount} />
+                    <span className="ml-1 text-ink-3">
+                      <CountUp value={unclassifiedPct} decimals={1} suffix="%" />
+                    </span>
                   </span>
                 </div>
                 <div className="h-1.5 w-full overflow-hidden rounded-full bg-[rgba(15,18,22,0.07)]">
                   <div
-                    className="h-full rounded-full bg-[rgba(15,18,22,0.3)]"
-                    style={{ width: `${unclassifiedPct}%` }}
+                    className="bar-grow h-full rounded-full bg-[rgba(15,18,22,0.3)]"
+                    style={stagger(distribution.length, { width: `${unclassifiedPct}%` })}
                   />
                 </div>
               </li>
@@ -177,15 +187,15 @@ export default function DashboardPage({ onInvestigate, onOpenMap }: DashboardPag
       </div>
 
       {/* ── Recent detections ──────────────────────────────────────────────── */}
-      <Card title="Recent detections" provenance="observed" meta={`${hotspots.length} most recent`}>
+      <Card title="Latest detections" provenance="observed" meta={`${hotspots.length} most recent`}>
         {hotspots.length === 0 ? (
-          <p className="text-[12px] text-ink-3">No detections stored.</p>
+          <p className="text-[12px] text-ink-3">No detections yet.</p>
         ) : (
           <div className="-mx-3.5 overflow-x-auto">
             <table className="w-full min-w-[680px] border-collapse text-left">
               <thead>
                 <tr className="border-b border-hairline">
-                  {['Acquired (UTC)', 'Position', 'FRP', 'Sensor', 'Classification', 'Confidence'].map(
+                  {['Detected (UTC)', 'Location', 'Fire power', 'Sensor', 'Fire type', 'Confidence'].map(
                     (h, i) => (
                       <th
                         key={h}
@@ -206,10 +216,12 @@ export default function DashboardPage({ onInvestigate, onOpenMap }: DashboardPag
                   return (
                     <tr
                       key={h._id}
+                      ref={revealRef}
+                      data-reveal="fade"
                       onClick={() => onInvestigate(h._id)}
                       tabIndex={0}
                       onKeyDown={(e) => e.key === 'Enter' && onInvestigate(h._id)}
-                      className="cursor-pointer border-b border-hairline last:border-0 hover:bg-[rgba(15,18,22,0.04)]"
+                      className="cursor-pointer border-b border-hairline transition-colors last:border-0 hover:bg-[rgba(15,18,22,0.04)]"
                     >
                       <td className="num px-3.5 py-1.5 text-[11px] text-ink-2">
                         {h.detectedAt.slice(0, 16).replace('T', ' ')}
@@ -229,7 +241,7 @@ export default function DashboardPage({ onInvestigate, onOpenMap }: DashboardPag
                           // row's class is unknown — not "unclassified".
                           <span className="text-[11px] text-ink-4">Loading…</span>
                         ) : (
-                          <span className="text-[11px] text-ink-4">Unclassified</span>
+                          <span className="text-[11px] text-ink-4">Not classified</span>
                         )}
                       </td>
                       <td className="num px-3.5 py-1.5 text-right text-[11px] text-ink-2">

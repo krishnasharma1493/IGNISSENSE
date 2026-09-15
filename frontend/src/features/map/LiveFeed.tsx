@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import type { Hotspot, Classification } from '../../types';
 import { CLASS_CONFIG } from '../../types';
 import { useSyncFirms, useSystemStatus } from '../../api/hooks';
+import { revealRef } from '../../components/motion/motion';
 
 interface LiveFeedProps {
   hotspots: Hotspot[];
@@ -33,14 +34,14 @@ export default function LiveFeed({
 
   const services: { label: string; ok: boolean; detail: string }[] = [
     {
-      label: 'FIRMS',
+      label: 'NASA FIRMS',
       ok: Boolean(status?.firmsConnected),
-      detail: status?.firmsConnected ? 'Polling' : 'Standby',
+      detail: status?.firmsConnected ? 'Live' : 'Waiting',
     },
     {
       label: 'Model',
       ok: status?.modelStatus === 'ready',
-      detail: status?.modelStatus === 'ready' ? 'Ready' : 'Fallback',
+      detail: status?.modelStatus === 'ready' ? 'Ready' : 'Offline',
     },
     {
       label: 'Database',
@@ -50,7 +51,7 @@ export default function LiveFeed({
   ];
 
   return (
-    <div className="flex max-h-[46vh] flex-col">
+    <div className="tab-enter flex max-h-[46vh] flex-col">
       {/* Service state — the pipeline degrades silently, so it is stated plainly */}
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 border-b border-hairline px-3 py-2">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -71,12 +72,12 @@ export default function LiveFeed({
           onClick={() => sync.mutate({ scope: 'india', dayRange: 2 })}
           disabled={sync.isPending}
           className="ctl h-6 px-2 text-[11px] disabled:opacity-50"
-          title="Query FIRMS for newly published satellite passes"
+          title="Check NASA FIRMS for new satellite passes"
         >
           <span className="material-symbols-outlined" style={{ fontSize: 13 }} aria-hidden="true">
             sync
           </span>
-          {sync.isPending ? 'Polling…' : 'Poll now'}
+          {sync.isPending ? 'Checking…' : 'Refresh'}
         </button>
       </div>
 
@@ -89,7 +90,7 @@ export default function LiveFeed({
       <ul className="flex-1 overflow-y-auto">
         {recent.length === 0 ? (
           <li className="px-3 py-6 text-center text-[11px] text-ink-3">
-            No thermal detections in the current view.
+            No fires match the current filters. Try a longer time range.
           </li>
         ) : (
           recent.map((h) => {
@@ -100,7 +101,8 @@ export default function LiveFeed({
             const [lng, lat] = h.location.coordinates;
 
             return (
-              <li key={h._id}>
+              // New detections fade in as they arrive on the refetch.
+              <li key={h._id} ref={revealRef} data-reveal="fade">
                 <button
                   type="button"
                   onClick={() => onSelectHotspot(h._id)}
@@ -117,7 +119,7 @@ export default function LiveFeed({
                     />
                     <span className="min-w-0">
                       <span className="block truncate text-[12px] font-medium text-ink">
-                        {cfg?.label ?? 'Unclassified'}
+                        {cfg?.label ?? 'Not classified'}
                       </span>
                       <span className="num block truncate text-[10px] text-ink-3">
                         {h.instrument} · {lat.toFixed(3)}, {lng.toFixed(3)}
@@ -141,8 +143,8 @@ export default function LiveFeed({
       </ul>
 
       <p className="border-t border-hairline px-3 py-1.5 text-[10px] text-ink-3">
-        Times shown in UTC, as published by FIRMS
-        {status?.counts ? ` · ${status.counts.totalHotspots.toLocaleString()} detections stored` : ''}
+        All times in UTC
+        {status?.counts ? ` · ${status.counts.totalHotspots.toLocaleString()} detections in total` : ''}
       </p>
     </div>
   );

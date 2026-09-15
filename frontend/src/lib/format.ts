@@ -47,7 +47,7 @@ export function formatFirmsConfidence(v: string | number | null | undefined): st
     h: 'High',
   };
   const named = letter[s.toLowerCase()];
-  if (named) return `${named} (${s.toLowerCase()})`;
+  if (named) return named;
 
   const n = Number(s);
   return Number.isFinite(n) ? `${n}%` : titleise(s);

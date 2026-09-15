@@ -7,6 +7,7 @@ import type { Classification, ClassificationClass } from '../../types';
 import { ClassChip } from '../../components/ui/Chip';
 import { Card, Stat } from '../../components/ui/Card';
 import { formatUtc } from '../../lib/format';
+import { revealRef, stagger } from '../../components/motion/motion';
 import { formatMw, latestDays, quantile, utcDay } from './stats';
 
 /**
@@ -109,17 +110,17 @@ function ClassMix({ d }: { d: Derived }) {
             <div
               className="relative flex h-9 items-end gap-[2px] border-b border-hairline"
               role="img"
-              aria-label={`${row === 'none' ? 'Not classified' : CLASS_CONFIG[row].label}: ${d.rowTotals[row]} detections, daily peak ${peak}`}
+              aria-label={`${row === 'none' ? 'Not classified' : CLASS_CONFIG[row].label}: ${d.rowTotals[row]} detections, busiest day ${peak}`}
             >
               {values.map((v, i) => (
                 <div key={d.days[i]} className="group relative flex h-full flex-1 items-end justify-center">
                   {v > 0 ? (
                     <div
-                      className="w-full max-w-[24px] rounded-t-[4px] transition-opacity group-hover:opacity-75"
-                      style={{ height: `${Math.max(6, (v / Math.max(peak, 1)) * 100)}%`, backgroundColor: color }}
+                      className="chart-bar w-full max-w-[24px] rounded-t-[4px] transition-opacity group-hover:opacity-75"
+                      style={stagger(i, { height: `${Math.max(6, (v / Math.max(peak, 1)) * 100)}%`, backgroundColor: color })}
                     />
                   ) : null}
-                  <span className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1 hidden -translate-x-1/2 whitespace-nowrap rounded-md border border-hairline bg-white px-2 py-1 text-[10px] shadow-md group-hover:block">
+                  <span className="chart-tip pointer-events-none absolute bottom-full left-1/2 z-10 mb-1 hidden -translate-x-1/2 whitespace-nowrap rounded-md border border-hairline bg-white px-2 py-1 text-[10px] shadow-md group-hover:block">
                     <span className="num block font-semibold text-ink">{v.toLocaleString()}</span>
                     <span className="num block text-ink-3">{d.days[i]}</span>
                   </span>
@@ -141,7 +142,7 @@ function ClassMix({ d }: { d: Derived }) {
         </div>
         <span />
       </div>
-      <p className="text-[10px] text-ink-3">Each row has its own scale, so small classes stay readable. Compare rows by their totals.</p>
+      <p className="text-[10px] text-ink-3">Each row has its own scale so smaller fire types stay visible. Use the totals on the right to compare rows.</p>
     </div>
   );
 }
@@ -149,7 +150,7 @@ function ClassMix({ d }: { d: Derived }) {
 function ClassMixTable({ d }: { d: Derived }) {
   const rows: Row[] = [...ORDER, 'none'];
   return (
-    <div className="-mx-3.5 overflow-x-auto">
+    <div className="tab-enter -mx-3.5 overflow-x-auto">
       <table className="w-full border-collapse text-left">
         <thead>
           <tr className="border-b border-hairline">
@@ -202,27 +203,27 @@ function ConfidenceByClass({ d }: { d: Derived }) {
             <div
               className="relative flex h-8 items-end gap-[2px] border-b border-hairline"
               role="img"
-              aria-label={`${CLASS_CONFIG[cls].label}: ${vals.length} predictions, median confidence ${med === null ? 'not available' : Math.round(med * 100) + '%'}`}
+              aria-label={`${CLASS_CONFIG[cls].label}: ${vals.length} predictions, typical confidence ${med === null ? 'not available' : Math.round(med * 100) + '%'}`}
             >
               {bins.map((b, i) => (
                 <div key={i} className="group relative flex h-full flex-1 items-end justify-center">
                   {b > 0 ? (
                     <div
-                      className="w-full max-w-[24px] rounded-t-[4px] group-hover:opacity-75"
-                      style={{ height: `${Math.max(6, (b / peak) * 100)}%`, backgroundColor: CLASS_CONFIG[cls].ink }}
+                      className="chart-bar w-full max-w-[24px] rounded-t-[4px] group-hover:opacity-75"
+                      style={stagger(i, { height: `${Math.max(6, (b / peak) * 100)}%`, backgroundColor: CLASS_CONFIG[cls].ink })}
                     />
                   ) : null}
-                  <span className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1 hidden -translate-x-1/2 whitespace-nowrap rounded-md border border-hairline bg-white px-2 py-1 text-[10px] shadow-md group-hover:block">
+                  <span className="chart-tip pointer-events-none absolute bottom-full left-1/2 z-10 mb-1 hidden -translate-x-1/2 whitespace-nowrap rounded-md border border-hairline bg-white px-2 py-1 text-[10px] shadow-md group-hover:block">
                     <span className="num block font-semibold text-ink">{b.toLocaleString()}</span>
                     <span className="num block text-ink-3">
-                      {i * 10}–{(i + 1) * 10}% confidence
+                      {i * 10}–{(i + 1) * 10}% confident
                     </span>
                   </span>
                 </div>
               ))}
               {med !== null ? (
                 <span
-                  className="pointer-events-none absolute bottom-0 top-0 w-px bg-ink"
+                  className="fade-dot pointer-events-none absolute bottom-0 top-0 w-px bg-ink"
                   style={{ left: `${med * 100}%` }}
                   aria-hidden="true"
                 />
@@ -246,7 +247,7 @@ function ConfidenceByClass({ d }: { d: Derived }) {
         </div>
         <span />
       </div>
-      <p className="text-[10px] text-ink-3">Bars are 10-point confidence bins; the dark rule marks the median.</p>
+      <p className="text-[10px] text-ink-3">Each bar covers a 10% confidence band. The dark line marks the median.</p>
     </div>
   );
 }
@@ -267,24 +268,24 @@ function FrpByClass({ d }: { d: Derived }) {
 
   return (
     <div className="flex flex-col gap-2">
-      {summaries.map(({ cls, n, p25, med, p75 }) => (
+      {summaries.map(({ cls, n, p25, med, p75 }, i) => (
         <div key={cls} className="grid grid-cols-[140px_1fr_156px] items-center gap-3">
           <ClassChip cls={cls} icon={false} />
-          <div className="relative h-6" role="img" aria-label={`${CLASS_CONFIG[cls].label}: median ${med === null ? 'not available' : formatMw(med) + ' megawatts'}`}>
+          <div className="relative h-6" role="img" aria-label={`${CLASS_CONFIG[cls].label}: typical fire power ${med === null ? 'not available' : formatMw(med) + ' megawatts'}`}>
             {ticks.map((t) => (
               <span key={t} className="absolute bottom-0 top-0 w-px bg-hairline" style={{ left: `${x(t)}%` }} aria-hidden="true" />
             ))}
             {p25 !== null && p75 !== null ? (
               <span
-                className="absolute top-1/2 h-1 -translate-y-1/2 rounded-full"
-                style={{ left: `${x(p25)}%`, width: `${Math.max(0.5, x(p75) - x(p25))}%`, backgroundColor: CLASS_CONFIG[cls].ink }}
+                className="bar-grow absolute top-1/2 h-1 -translate-y-1/2 rounded-full"
+                style={stagger(i, { left: `${x(p25)}%`, width: `${Math.max(0.5, x(p75) - x(p25))}%`, backgroundColor: CLASS_CONFIG[cls].ink })}
                 aria-hidden="true"
               />
             ) : null}
             {med !== null ? (
               <span
-                className="absolute top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-white"
-                style={{ left: `${x(med)}%`, backgroundColor: CLASS_CONFIG[cls].ink }}
+                className="fade-dot absolute top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-white"
+                style={stagger(i, { left: `${x(med)}%`, backgroundColor: CLASS_CONFIG[cls].ink })}
                 aria-hidden="true"
               />
             ) : null}
@@ -299,7 +300,7 @@ function FrpByClass({ d }: { d: Derived }) {
           </div>
         </div>
       ))}
-      <div className="grid grid-cols-[140px_1fr_120px] gap-3">
+      <div className="grid grid-cols-[140px_1fr_156px] gap-3">
         <span />
         <div className="relative h-4 text-[10px] text-ink-3">
           {ticks.map((t) => (
@@ -310,7 +311,7 @@ function FrpByClass({ d }: { d: Derived }) {
         </div>
         <span />
       </div>
-      <p className="text-[10px] text-ink-3">Log scale, MW. The bar spans the middle 50% of detections; the dot is the median.</p>
+      <p className="text-[10px] text-ink-3">Fire radiative power in MW, on a log scale. The bar spans the middle half of detections; the dot is the median.</p>
     </div>
   );
 }
@@ -320,7 +321,7 @@ function FrpByClass({ d }: { d: Derived }) {
 function SensorSplit({ d }: { d: Derived }) {
   return (
     <div className="flex flex-col gap-3">
-      {d.sensors.map(({ instrument, day, night }) => {
+      {d.sensors.map(({ instrument, day, night }, i) => {
         const total = day + night;
         const dayPct = total ? (day / total) * 100 : 0;
         return (
@@ -329,10 +330,11 @@ function SensorSplit({ d }: { d: Derived }) {
               <span className="text-[12px] font-medium text-ink">{instrument}</span>
               <span className="num text-[11px] text-ink-2">{total.toLocaleString()} detections</span>
             </div>
-            <div className="flex h-2 w-full gap-[2px]" role="img" aria-label={`${instrument}: ${day} day passes, ${night} night passes`}>
-              {day > 0 ? <span className="h-full rounded-l-full" style={{ width: `${dayPct}%`, backgroundColor: DAY_COLOR }} /> : null}
+            {/* The two segments grow outward from the ends toward the split. */}
+            <div className="flex h-2 w-full gap-[2px]" role="img" aria-label={`${instrument}: ${day} during the day, ${night} at night`}>
+              {day > 0 ? <span className="bar-grow h-full rounded-l-full" style={stagger(i, { width: `${dayPct}%`, backgroundColor: DAY_COLOR })} /> : null}
               {night > 0 ? (
-                <span className="h-full flex-1 rounded-r-full" style={{ backgroundColor: NIGHT_COLOR }} />
+                <span className="bar-grow-end h-full flex-1 rounded-r-full" style={stagger(i, { backgroundColor: NIGHT_COLOR })} />
               ) : null}
             </div>
             <div className="flex justify-between text-[10px] text-ink-3">
@@ -345,11 +347,11 @@ function SensorSplit({ d }: { d: Derived }) {
       <div className="flex items-center gap-3 text-[10px] text-ink-3">
         <span className="flex items-center gap-1">
           <span className="h-2 w-2 rounded-sm" style={{ backgroundColor: DAY_COLOR }} aria-hidden="true" />
-          Day pass
+          Daytime pass
         </span>
         <span className="flex items-center gap-1">
           <span className="h-2 w-2 rounded-sm" style={{ backgroundColor: NIGHT_COLOR }} aria-hidden="true" />
-          Night pass
+          Night-time pass
         </span>
       </div>
     </div>
@@ -419,11 +421,12 @@ export default function AnalyticsPage({ onOpenMap }: { onOpenMap: () => void }) 
 
   return (
     <div className="mx-auto flex max-w-[1400px] flex-col gap-4">
-      <header className="flex flex-wrap items-end justify-between gap-3">
+      <header ref={revealRef} data-reveal className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-[22px] font-semibold tracking-tight text-ink">Analytics</h1>
           <p className="mt-0.5 text-[12px] text-ink-2">
-            How the model reads recent detections: class mix over time, how confident it is, and what the sensors observed.
+            How the AI model is reading recent fires: which types it sees, how sure it is, and what
+            the satellites picked up.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -441,41 +444,44 @@ export default function AnalyticsPage({ onOpenMap }: { onOpenMap: () => void }) 
 
       {status?.demoMode ? (
         <p className="rounded-lg border border-[rgba(138,97,0,0.26)] bg-warn-soft px-3 py-2 text-[12px] text-warn">
-          The backend is running against an in-memory database. Every figure below reflects seeded data rather than the live store.
+          Demo data: the backend is using a temporary in-memory database, so these numbers aren&rsquo;t live.
         </p>
       ) : null}
 
       <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
-        <Stat label="Detections analysed" value={isLoading || !d ? null : d.analysed.toLocaleString()} hint={d ? `${d.days.length} UTC days` : undefined} />
+        <Stat label="Detections analysed" value={isLoading || !d ? null : d.analysed} hint={d ? `Over ${d.days.length} days (UTC)` : undefined} />
         <Stat
           label="Classified"
-          value={!d || !d.analysed ? null : `${((d.classified / d.analysed) * 100).toFixed(1)}%`}
-          hint="Reached the model"
+          value={!d || !d.analysed ? null : (d.classified / d.analysed) * 100}
+          decimals={1}
+          suffix="%"
+          hint="Got a fire-type prediction"
         />
         <Stat
-          label="Median confidence"
-          value={d?.medianConfidence == null ? null : `${Math.round(d.medianConfidence * 100)}%`}
-          hint="Across classified detections"
+          label="Typical confidence"
+          value={d?.medianConfidence == null ? null : Math.round(d.medianConfidence * 100)}
+          suffix="%"
+          hint="Median across all predictions"
         />
         <Stat
-          label="Model"
+          label="Model version"
           value={status?.modelVersion ? status.modelVersion.replace(/^XGB-FIRMS-/, '') : null}
-          hint={d?.lowConfidenceShare == null ? undefined : `${Math.round(d.lowConfidenceShare * 100)}% of predictions below 50% confidence`}
+          hint={d?.lowConfidenceShare == null ? undefined : `${Math.round(d.lowConfidenceShare * 100)}% of predictions are below 50% confidence`}
         />
       </div>
 
       {!d ? (
         <p className="rounded-lg border border-hairline bg-white/60 px-3.5 py-6 text-center text-[12px] text-ink-3">
-          {isLoading ? 'Loading detections…' : 'No detections stored yet.'}
+          {isLoading ? 'Loading detections…' : 'No detections yet. Charts appear once satellites report fires.'}
         </p>
       ) : (
         <>
           <Card
-            title={`Class mix by day · ${d.days.length} days`}
+            title={`Fire types by day · ${d.days.length} days`}
             provenance="model"
             meta={`${d.analysed.toLocaleString()} detections`}
             action={
-              <div className="flex rounded-md border border-hairline p-px" role="group" aria-label="Class mix view">
+              <div className="flex rounded-md border border-hairline p-px" role="group" aria-label="Show fire types as">
                 {(['chart', 'table'] as const).map((v) => (
                   <button
                     key={v}
@@ -494,20 +500,20 @@ export default function AnalyticsPage({ onOpenMap }: { onOpenMap: () => void }) 
           </Card>
 
           <div className="grid gap-3 lg:grid-cols-2">
-            <Card title="Model confidence by class" provenance="model" meta={`${d.classified.toLocaleString()} predictions`}>
+            <Card title="How sure the model is" provenance="model" meta={`${d.classified.toLocaleString()} predictions`}>
               <ConfidenceByClass d={d} />
             </Card>
-            <Card title="Radiative power by class" provenance="observed">
+            <Card title="Fire intensity by type" provenance="observed">
               <FrpByClass d={d} />
             </Card>
           </div>
 
-          <Card title="Sensors and overpass" provenance="observed" meta={`${d.sensors.length} instruments`}>
+          <Card title="Sensors and pass times" provenance="observed" meta={`${d.sensors.length} sensors`}>
             <SensorSplit d={d} />
           </Card>
 
           <p className="text-[10px] text-ink-3">
-            Updated {formatUtc(new Date().toISOString()) ?? '—'}. Classes are model predictions — decision support, not confirmed incidents.
+            Updated {formatUtc(new Date().toISOString()) ?? '—'}. Fire types are AI predictions — verify on the ground before acting.
           </p>
         </>
       )}

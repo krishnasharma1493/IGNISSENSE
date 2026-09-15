@@ -17,22 +17,22 @@ const PROVENANCE_META: Record<
   { label: string; source: string; className: string }
 > = {
   observed: {
-    label: 'Observed',
+    label: 'Measured',
     source: 'NASA FIRMS',
     className: 'text-ink-2 bg-[rgba(15,18,22,0.06)] border-hairline',
   },
   model: {
-    label: 'Derived',
+    label: 'AI prediction',
     source: 'XGBoost',
     className: 'text-accent-strong bg-accent-soft border-accent-line',
   },
   heuristic: {
-    label: 'Derived',
-    source: 'Heuristic',
+    label: 'Calculated',
+    source: 'by rules',
     className: 'text-warn bg-warn-soft border-[rgba(138,97,0,0.25)]',
   },
   context: {
-    label: 'Context',
+    label: 'Map data',
     source: 'OpenStreetMap',
     className: 'text-ink-2 bg-[rgba(15,18,22,0.06)] border-hairline',
   },

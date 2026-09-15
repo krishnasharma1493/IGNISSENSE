@@ -17,6 +17,7 @@ import { CLASSIFICATION_CLASSES } from '../types';
 import type { Classification, ClassificationClass } from '../types';
 import { api } from '../api/client';
 import { useSearch } from '../context/SearchContext';
+import { usePresence } from '../components/motion/usePresence';
 
 interface MapPageProps {
   selectedHotspotId: string | null;
@@ -81,7 +82,11 @@ export default function MapPage({ selectedHotspotId, onSelectHotspot }: MapPageP
     [classificationsData]
   );
 
-  const { data: selectedHotspot, isLoading: hotspotLoading } = useHotspot(selectedHotspotId);
+  const {
+    data: selectedHotspot,
+    isLoading: hotspotLoading,
+    isError: hotspotError,
+  } = useHotspot(selectedHotspotId);
   const { data: selectedClassification, isLoading: classLoading } =
     useClassification(selectedHotspotId);
 
@@ -143,6 +148,39 @@ export default function MapPage({ selectedHotspotId, onSelectHotspot }: MapPageP
     }
     return counts;
   }, [allHotspots, classifications]);
+
+  /* ── Investigation panel presence ───────────────────────────────────────
+     Presentation only; the queries above are untouched. While a newly
+     selected detection is still loading, the previous one stays on screen,
+     dimmed, inert and marked as loading (its body crossfades when the new one
+     arrives), instead of the panel closing and reopening. If the new one fails
+     to load, the panel closes. Once nothing is selected, the panel slides out
+     with the content it last showed. */
+  const panelData = useMemo(
+    () =>
+      selectedHotspot
+        ? {
+            hotspot: selectedHotspot,
+            classification: selectedClassification ?? null,
+            isLoading: hotspotLoading || classLoading,
+            nearbyOsmFeatures,
+            isNearbyOsmLoading: osmLoading,
+          }
+        : null,
+    [selectedHotspot, selectedClassification, hotspotLoading, classLoading, nearbyOsmFeatures, osmLoading]
+  );
+  const [heldPanelData, setHeldPanelData] = useState(panelData);
+  if (panelData && panelData !== heldPanelData) setHeldPanelData(panelData);
+  if ((!selectedHotspotId || hotspotError) && heldPanelData) setHeldPanelData(null);
+  const pendingPanelData = useMemo(
+    () => (heldPanelData ? { ...heldPanelData, isLoading: true } : null),
+    [heldPanelData]
+  );
+  const panelPending = Boolean(selectedHotspotId) && !panelData && pendingPanelData !== null;
+  const panel = usePresence(
+    selectedHotspotId && !hotspotError ? panelData ?? pendingPanelData : null,
+    200
+  );
 
   const toggleClass = (c: ClassificationClass) => {
     setVisibleClasses((prev) => {
@@ -206,13 +244,15 @@ export default function MapPage({ selectedHotspotId, onSelectHotspot }: MapPageP
         />
       </div>
 
-      {selectedHotspot ? (
+      {panel.value ? (
         <InvestigationPanel
-          hotspot={selectedHotspot}
-          classification={selectedClassification ?? null}
-          isLoading={hotspotLoading || classLoading}
-          nearbyOsmFeatures={nearbyOsmFeatures}
-          isNearbyOsmLoading={osmLoading}
+          hotspot={panel.value.hotspot}
+          classification={panel.value.classification}
+          isLoading={panel.value.isLoading}
+          nearbyOsmFeatures={panel.value.nearbyOsmFeatures}
+          isNearbyOsmLoading={panel.value.isNearbyOsmLoading}
+          exiting={panel.exiting}
+          pending={panelPending && !panel.exiting}
           linkedCount={linkedCount}
           onLinkedCountChange={setLinkedCount}
           onFocusFeature={(coordinates, label) =>

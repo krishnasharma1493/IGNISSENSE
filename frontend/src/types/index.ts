@@ -165,13 +165,13 @@ export interface ClassDisplay {
 
 export const CLASS_CONFIG: Record<ClassificationClass, ClassDisplay> = {
   industrial_fire: {
-    label: 'Industrial Fire',
+    label: 'Industrial fire',
     ink: '#B3261E',
     mark: '#FF3B30',
     icon: 'factory',
   },
   gas_flare: {
-    label: 'Gas Flare',
+    label: 'Gas flare',
     ink: '#A24A05',
     mark: '#FF8A00',
     icon: 'local_fire_department',
@@ -183,13 +183,13 @@ export const CLASS_CONFIG: Record<ClassificationClass, ClassDisplay> = {
     icon: 'forest',
   },
   agricultural_burning: {
-    label: 'Agricultural Burning',
+    label: 'Agricultural burning',
     ink: '#8A6100',
     mark: '#FFCC00',
     icon: 'agriculture',
   },
   mining_thermal_activity: {
-    label: 'Mining Thermal',
+    label: 'Mining activity',
     ink: '#6B3FA0',
     mark: '#AF52DE',
     icon: 'terrain',

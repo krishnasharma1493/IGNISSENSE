@@ -403,14 +403,14 @@ export default function MapView({
         .setHTML(
           `<div style="font-size:11.5px;line-height:1.5">
              <div style="font-weight:600;color:${p.classLabel ? 'var(--color-ink)' : 'var(--color-ink-3)'};margin-bottom:4px">
-               ${p.classLabel || 'Unclassified detection'}
+               ${p.classLabel || 'Not classified'}
              </div>
-             ${row('FRP', p.frp ? `${p.frp} MW` : '')}
+             ${row('Fire power', p.frp ? `${p.frp} MW` : '')}
              ${row('Brightness', p.brightness ? `${p.brightness} K` : '')}
              ${row('Sensor', p.instrument && p.satellite ? `${p.instrument} · ${p.satellite}` : '')}
-             ${row('Position', `${lat.toFixed(4)}, ${lng.toFixed(4)}`)}
+             ${row('Location', `${lat.toFixed(4)}, ${lng.toFixed(4)}`)}
              <div style="margin-top:5px;padding-top:5px;border-top:1px solid var(--color-hairline);color:var(--color-accent);font-weight:600;font-size:10.5px">
-               Click to investigate
+               Click for details
              </div>
            </div>`
         )

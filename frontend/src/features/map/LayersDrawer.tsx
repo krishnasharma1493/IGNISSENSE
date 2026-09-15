@@ -1,6 +1,7 @@
 import type { Hotspot, Classification, ClassificationClass } from '../../types';
 import { CLASS_CONFIG, CLASSIFICATION_CLASSES } from '../../types';
 import Panel from '../../components/ui/Panel';
+import { usePresence } from '../../components/motion/usePresence';
 import LiveFeed from './LiveFeed';
 
 export type DrawerTab = 'layers' | 'filters' | 'feed';
@@ -43,7 +44,7 @@ interface LayersDrawerProps {
 const TABS: { id: DrawerTab; label: string; icon: string }[] = [
   { id: 'layers', label: 'Layers', icon: 'layers' },
   { id: 'filters', label: 'Filters', icon: 'tune' },
-  { id: 'feed', label: 'Feed', icon: 'sensors' },
+  { id: 'feed', label: 'Live feed', icon: 'sensors' },
 ];
 
 function Toggle({
@@ -152,32 +153,19 @@ export default function LayersDrawer(props: LayersDrawerProps) {
     return !c || c.pipelineStatus !== 'classified' || !c.predictedClass ? n + 1 : n;
   }, 0);
 
-  if (!open) {
-    return (
-      <Panel level="chrome" className="overflow-hidden rounded-lg">
-        <button
-          type="button"
-          onClick={() => onOpenChange(true)}
-          className="ctl h-9 gap-2 px-3 text-[12px]"
-          aria-expanded={false}
-        >
-          <span className="material-symbols-outlined" style={{ fontSize: 15 }} aria-hidden="true">
-            layers
-          </span>
-          Layers &amp; filters
-          <span className="num text-[11px] text-ink-3">
-            {visibleCount.toLocaleString()}/{totalCount.toLocaleString()}
-          </span>
-        </button>
-      </Panel>
-    );
-  }
+  // Keeps the drawer mounted while it shrinks back into its button.
+  const presence = usePresence(open ? true : null, 180);
+  const exiting = presence.exiting;
 
-  return (
-    <Panel level="panel" className="arrive flex w-[320px] flex-col overflow-hidden rounded-xl">
+  const drawer = (
+    <Panel
+      level="panel"
+      className={`${exiting ? 'drawer-exit' : 'drawer-enter'} flex w-[320px] flex-col overflow-hidden rounded-xl`}
+      inert={exiting || undefined}
+    >
       {/* Tabs */}
       <div className="flex items-center gap-0.5 border-b border-hairline px-1.5 py-1.5">
-        <div role="tablist" aria-label="Map controls" className="flex flex-1 items-center gap-0.5">
+        <div role="tablist" aria-label="Map options" className="flex flex-1 items-center gap-0.5">
           {TABS.map((t) => (
             <button
               key={t.id}
@@ -204,7 +192,7 @@ export default function LayersDrawer(props: LayersDrawerProps) {
           type="button"
           onClick={() => onOpenChange(false)}
           className="ctl h-7 w-7"
-          aria-label="Collapse layers and filters"
+          aria-label="Hide layers and filters"
           aria-expanded
         >
           <span className="material-symbols-outlined" style={{ fontSize: 16 }} aria-hidden="true">
@@ -215,10 +203,10 @@ export default function LayersDrawer(props: LayersDrawerProps) {
 
       {/* ── Layers ─────────────────────────────────────────────────────────── */}
       {tab === 'layers' ? (
-        <div className="flex flex-col gap-3 px-3 py-3">
+        <div className="tab-enter flex flex-col gap-3 px-3 py-3">
           <div>
             <h3 className="mb-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-ink-3">
-              Thermal events
+              Fire types
             </h3>
             <ul>
               {CLASSIFICATION_CLASSES.map((c) => {
@@ -259,7 +247,7 @@ export default function LayersDrawer(props: LayersDrawerProps) {
               <span className="min-w-0 flex-1 text-[12px] text-ink-2">
                 Not classified
                 <span className="block text-[10px] leading-snug text-ink-3">
-                  Hollow ring &mdash; the classifier did not run. Filtered with Uncertain.
+                  Hollow ring &mdash; no fire type available. Shown or hidden with Uncertain.
                 </span>
               </span>
               <span className="num text-[11px] text-ink-3">{unclassifiedCount}</span>
@@ -268,20 +256,20 @@ export default function LayersDrawer(props: LayersDrawerProps) {
 
           <div className="border-t border-hairline pt-1">
             <h3 className="mb-0.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-ink-3">
-              Context
+              Map context
             </h3>
             <Toggle
-              label="Industrial facilities"
-              hint="OpenStreetMap infrastructure, from zoom 8"
+              label="Industrial sites"
+              hint="From OpenStreetMap · appears as you zoom in"
               checked={showFacilities}
               onChange={onToggleFacilities}
             />
             <Toggle
-              label="Investigation network"
+              label="Nearby sites"
               hint={
                 hasSelection
-                  ? 'Nearby features linked to the selected detection'
-                  : 'Select a detection to build a network'
+                  ? 'Connect the selected fire to facilities around it'
+                  : 'Select a fire on the map to see what’s around it'
               }
               checked={showOsmContext}
               onChange={onToggleOsmContext}
@@ -293,10 +281,10 @@ export default function LayersDrawer(props: LayersDrawerProps) {
 
       {/* ── Filters ────────────────────────────────────────────────────────── */}
       {tab === 'filters' ? (
-        <div className="flex flex-col gap-1 px-3 py-3">
+        <div className="tab-enter flex flex-col gap-1 px-3 py-3">
           <div className="flex flex-col gap-1 py-1.5">
             <label htmlFor="time-range" className="text-[11px] text-ink-2">
-              Detection window
+              Time range
             </label>
             <select
               id="time-range"
@@ -309,31 +297,31 @@ export default function LayersDrawer(props: LayersDrawerProps) {
               <option value="24h">Last 24 hours</option>
               <option value="48h">Last 48 hours</option>
               <option value="7d">Last 7 days</option>
-              <option value="all">All stored detections</option>
+              <option value="all">All detections</option>
             </select>
           </div>
 
           <Slider
             id="min-confidence"
-            label="Minimum model confidence"
+            label="Model confidence at least"
             value={filters.minConfidence}
             onChange={(v) => onFiltersChange({ ...filters, minConfidence: v })}
           />
 
           <div className="border-t border-hairline pt-1">
             <p className="py-1 text-[10px] leading-relaxed text-ink-3">
-              Persistence and anomaly are independent axes. Raising both narrows to sources that
-              recur <em>and</em> deviate from their own baseline.
+              Persistence and anomaly measure different things. Raise both to find sites that burn
+              often <em>and</em> are behaving unusually right now.
             </p>
             <Slider
               id="min-persistence"
-              label="Minimum persistence"
+              label="Persistence at least"
               value={filters.minPersistence}
               onChange={(v) => onFiltersChange({ ...filters, minPersistence: v })}
             />
             <Slider
               id="min-anomaly"
-              label="Minimum anomaly"
+              label="Anomaly at least"
               value={filters.minAnomaly}
               onChange={(v) => onFiltersChange({ ...filters, minAnomaly: v })}
             />
@@ -341,7 +329,7 @@ export default function LayersDrawer(props: LayersDrawerProps) {
 
           <div className="flex items-center justify-between gap-2 border-t border-hairline pt-2">
             <span className="num text-[11px] text-ink-3">
-              {visibleCount.toLocaleString()} of {totalCount.toLocaleString()} shown
+              Showing {visibleCount.toLocaleString()} of {totalCount.toLocaleString()}
             </span>
             <button
               type="button"
@@ -355,7 +343,7 @@ export default function LayersDrawer(props: LayersDrawerProps) {
               }
               className="ctl h-6 px-2 text-[11px]"
             >
-              Reset
+              Reset filters
             </button>
           </div>
         </div>
@@ -371,5 +359,34 @@ export default function LayersDrawer(props: LayersDrawerProps) {
         />
       ) : null}
     </Panel>
+  );
+
+  /* The button and the drawer share one wrapper and keep their places in it,
+     so closing never remounts the drawer: it stays in the tree, pinned to the
+     bottom-left corner, and shrinks back over the button that replaces it. */
+  return (
+    <div className="relative">
+      {!open ? (
+        <Panel level="chrome" className="overflow-hidden rounded-lg">
+          <button
+            type="button"
+            onClick={() => onOpenChange(true)}
+            className="ctl h-9 gap-2 px-3 text-[12px]"
+            aria-expanded={false}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: 15 }} aria-hidden="true">
+              layers
+            </span>
+            Layers &amp; filters
+            <span className="num text-[11px] text-ink-3">
+              {visibleCount.toLocaleString()}/{totalCount.toLocaleString()}
+            </span>
+          </button>
+        </Panel>
+      ) : null}
+      {presence.value ? (
+        <div className={open ? undefined : 'pointer-events-none absolute bottom-0 left-0'}>{drawer}</div>
+      ) : null}
+    </div>
   );
 }

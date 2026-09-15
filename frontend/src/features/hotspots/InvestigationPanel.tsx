@@ -26,6 +26,10 @@ interface InvestigationPanelProps {
   onLinkedCountChange: (n: number) => void;
   onFocusFeature: (coordinates: [number, number], label: string) => void;
   onClose: () => void;
+  /** Playing its exit animation; the panel is inert until it unmounts. */
+  exiting?: boolean;
+  /** Still showing the previous detection while a new selection loads. */
+  pending?: boolean;
 }
 
 /** Bands for the two independent heuristic axes. PRD §21 and §22. */
@@ -41,6 +45,8 @@ export default function InvestigationPanel({
   onLinkedCountChange,
   onFocusFeature,
   onClose,
+  exiting = false,
+  pending = false,
 }: InvestigationPanelProps) {
   const [copied, setCopied] = useState(false);
 
@@ -84,12 +90,18 @@ export default function InvestigationPanel({
     <Panel
       as="aside"
       level="panel"
-      className="arrive absolute right-4 top-[60px] bottom-4 z-40 flex w-[380px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-xl"
-      aria-label={`Investigation: event ${eventId}`}
+      className={`${
+        exiting ? 'panel-exit' : 'panel-enter'
+      } absolute right-4 top-[60px] bottom-4 z-40 flex w-[380px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-xl`}
+      aria-label={`Details for detection ${eventId}`}
+      inert={exiting || undefined}
     >
       {/* ── Anchor ─────────────────────────────────────────────────────────── */}
       <header className="flex items-start justify-between gap-3 border-b border-hairline px-4 py-3">
-        <div className="min-w-0 flex-1">
+        <div
+          className={`min-w-0 flex-1 transition-opacity ${pending ? 'opacity-50' : ''}`}
+          inert={pending || undefined}
+        >
           <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
             {predicted ? <ClassChip cls={predicted} size="md" /> : null}
             {classification?.pipelineStatus === 'classified' ? (
@@ -105,7 +117,7 @@ export default function InvestigationPanel({
             type="button"
             onClick={copyCoordinates}
             className="ctl -ml-1 mt-1 rounded-md px-1 py-0.5"
-            title="Copy coordinates"
+            title={copied ? 'Copied' : 'Copy coordinates'}
           >
             <span className="num text-[11px] text-ink-2">
               {lat.toFixed(5)}°N, {lng.toFixed(5)}°E
@@ -113,7 +125,7 @@ export default function InvestigationPanel({
             <span className="material-symbols-outlined" style={{ fontSize: 13 }} aria-hidden="true">
               {copied ? 'check' : 'content_copy'}
             </span>
-            <span className="sr-only">Copy coordinates</span>
+            <span className="sr-only">{copied ? 'Coordinates copied' : 'Copy coordinates'}</span>
           </button>
 
           {place ? (
@@ -137,7 +149,7 @@ export default function InvestigationPanel({
           type="button"
           onClick={onClose}
           className="ctl h-7 w-7 shrink-0 rounded-md"
-          aria-label="Close investigation"
+          aria-label="Close details"
         >
           <span className="material-symbols-outlined" style={{ fontSize: 17 }} aria-hidden="true">
             close
@@ -146,86 +158,95 @@ export default function InvestigationPanel({
       </header>
 
       {/* ── Body ───────────────────────────────────────────────────────────── */}
-      <div className="flex flex-1 flex-col gap-5 overflow-y-auto px-4 py-4">
+      {/* Keyed on the detection: switching fades the new one in from the top. */}
+      <div
+        key={hotspot._id}
+        className={`tab-enter flex flex-1 flex-col gap-5 overflow-y-auto px-4 py-4 transition-opacity ${
+          pending ? 'opacity-50' : ''
+        }`}
+        inert={pending || undefined}
+        aria-busy={pending || undefined}
+      >
         {/* 1. Thermal signal — straight off the FIRMS record */}
         <Section
-          title="Thermal signal"
+          title="Satellite reading"
           kind="observed"
           meta={`${hotspot.instrument} · ${hotspot.satellite}`}
         >
           <div className="grid grid-cols-3 gap-2">
             <Metric
-              label="FRP"
+              label="Fire power"
               value={hotspot.frp?.toFixed(1)}
               unit="MW"
               tone="var(--color-cls-industrial-ink)"
             />
             <Metric
-              label={hotspot.instrument?.toUpperCase().includes('VIIRS') ? 'Bright Ti4' : 'Brightness'}
+              label={hotspot.instrument?.toUpperCase().includes('VIIRS') ? 'Brightness I4' : 'Brightness'}
               value={hotspot.brightness ? Math.round(hotspot.brightness) : null}
               unit="K"
             />
             <Metric
-              label={hotspot.instrument?.toUpperCase().includes('VIIRS') ? 'Bright Ti5' : 'Bright T31'}
+              label={hotspot.instrument?.toUpperCase().includes('VIIRS') ? 'Brightness I5' : 'Brightness T31'}
               value={hotspot.brightnessTi5 ? Math.round(hotspot.brightnessTi5) : null}
               unit="K"
             />
           </div>
 
           <dl className="divide-y divide-hairline">
-            <Field label="Acquired" value={formatUtc(hotspot.detectedAt)} numeric />
+            <Field label="Detected" value={formatUtc(hotspot.detectedAt)} numeric />
             <Field
-              label="Overpass"
-              value={hotspot.dayNight === 'D' ? 'Daytime' : hotspot.dayNight === 'N' ? 'Night' : null}
+              label="Satellite pass"
+              value={hotspot.dayNight === 'D' ? 'Day' : hotspot.dayNight === 'N' ? 'Night' : null}
             />
-            <Field label="FIRMS confidence" value={formatFirmsConfidence(hotspot.confidence)} />
-            <Field label="Scan / track" value={
+            <Field label="Detection confidence" value={formatFirmsConfidence(hotspot.confidence)} />
+            <Field label="Pixel size" value={
               hotspot.scan !== null && hotspot.track !== null
                 ? `${hotspot.scan} × ${hotspot.track}`
                 : null
-            } numeric />
-            <Field label="Collection" value={hotspot.version} numeric />
-            <Field label="Ingested" value={formatUtc(hotspot.ingestedAt)} numeric />
+            } unit="km" numeric />
+            <Field label="Data version" value={hotspot.version} numeric />
+            <Field label="Received" value={formatUtc(hotspot.ingestedAt)} numeric />
           </dl>
         </Section>
 
         {/* 2. Model output — a prediction, labelled as such */}
         <Section
-          title="Classification"
+          title="Fire type"
           kind="model"
           meta={classification?.modelVersion ?? undefined}
         >
           {isLoading ? (
-            <p className="text-[11px] text-ink-3">Loading classification…</p>
+            <p className="text-[11px] text-ink-3">Loading prediction…</p>
           ) : !classification ? (
-            <p className="inset-surface rounded-md px-3 py-2.5 text-[11px] text-ink-2">
-              This detection has not been classified yet. The pipeline classifies newly ingested
-              hotspots in batches, so a very recent detection may not have a result.
+            <p className="inset-surface rounded-md px-3 py-2.5 text-[11px] leading-relaxed text-ink-2">
+              No prediction is available for this detection yet. The satellite readings above are
+              still accurate.
             </p>
           ) : classification.pipelineStatus === 'unclassified_insufficient_features' ? (
             <div className="inset-surface rounded-md px-3 py-2.5">
-              <p className="text-[12px] font-medium text-ink">Not classified</p>
+              <p className="text-[12px] font-medium text-ink">Couldn&rsquo;t classify this fire</p>
               <p className="mt-1 text-[11px] leading-relaxed text-ink-2">
-                The classifier did not run. OpenStreetMap coverage has not been extracted for
-                this location, so the spatial features it requires could not be measured.
+                The model needs to know what&rsquo;s nearby — industrial sites, mines, power plants —
+                and none are mapped within 25 km of this spot. The satellite readings above are still
+                accurate; check the location on the map to judge it yourself.
               </p>
               <p className="num mt-1.5 text-[10px] text-ink-3">
-                Unresolved: {classification.featureCompleteness.unresolved.join(', ')}
+                Missing inputs: {classification.featureCompleteness.unresolved.join(', ')}
               </p>
             </div>
           ) : classification.pipelineStatus === 'unclassified_model_unavailable' ? (
             <div className="inset-surface rounded-md px-3 py-2.5">
-              <p className="text-[12px] font-medium text-ink">Not classified</p>
+              <p className="text-[12px] font-medium text-ink">Couldn&rsquo;t classify this fire</p>
               <p className="mt-1 text-[11px] leading-relaxed text-ink-2">
-                Every required feature was measured, but the inference service did not answer, so
-                no prediction exists for this detection. It is re-classified on the next pipeline
-                run once the service is reachable.
+                We had everything the model needed, but the classification service didn&rsquo;t
+                respond when this detection came in, so there&rsquo;s no prediction for it. The
+                satellite readings above are still accurate.
               </p>
             </div>
           ) : (
             <>
               <div className="flex items-baseline justify-between gap-2">
-                <span className="text-[11px] text-ink-3">Predicted class confidence</span>
+                <span className="text-[11px] text-ink-3">Model confidence</span>
                 <span className="num text-[15px] font-semibold text-ink">
                   {classification.confidence !== null
                     ? `${Math.round(classification.confidence * 100)}%`
@@ -234,9 +255,10 @@ export default function InvestigationPanel({
               </div>
 
               <div className="flex flex-col gap-2">
-                {CLASSIFICATION_CLASSES.map((c) => (
+                {CLASSIFICATION_CLASSES.map((c, i) => (
                   <Bar
                     key={c}
+                    index={i}
                     label={CLASS_CONFIG[c].label}
                     value={classification.classProbabilities?.[c] ?? 0}
                     color={CLASS_CONFIG[c].ink}
@@ -249,10 +271,12 @@ export default function InvestigationPanel({
         </Section>
 
         {/* 3. Two independent axes — PRD §23 forbids collapsing these into one */}
-        <Section title="Persistence &amp; anomaly" kind="heuristic">
+        <Section title="History at this spot" kind="heuristic">
           <p className="text-[11px] leading-relaxed text-ink-3">
-            Computed from detection history, not by the classifier. These are separate properties:
-            a source can be persistent and unremarkable, or new and highly anomalous.
+            <strong className="font-medium text-ink-2">Persistence</strong> is how often fires have
+            been detected here before. <strong className="font-medium text-ink-2">Anomaly</strong> is
+            how unusual this reading is for this spot. They&rsquo;re scored separately: a steel plant
+            can burn every day and still look completely normal.
           </p>
           <div className="grid grid-cols-2 gap-2">
             <Metric
@@ -278,17 +302,17 @@ export default function InvestigationPanel({
 
         {/* 4. Spatial context */}
         <Section
-          title="Spatial context"
+          title="What's nearby"
           kind="context"
-          meta={isNearbyOsmLoading ? 'querying…' : `${nearbyOsmFeatures.length} within 20 km`}
+          meta={isNearbyOsmLoading ? 'searching…' : `${nearbyOsmFeatures.length} within 20 km`}
         >
           <dl className="divide-y divide-hairline">
             <Field
-              label="Nearest facility"
+              label="Nearest site"
               value={nearestFacility?.name ?? (nearbyOsmFeatures[0]?.name || null)}
             />
             <Field
-              label="Facility type"
+              label="Site type"
               value={
                 nearestFacility?.facilityType
                   ? titleise(nearestFacility.facilityType)
@@ -313,7 +337,7 @@ export default function InvestigationPanel({
             <>
               <div className="flex items-center justify-between gap-2 pt-1">
                 <label htmlFor="linked-count" className="text-[11px] text-ink-3">
-                  Linked on map
+                  Connect on map
                 </label>
                 <select
                   id="linked-count"
@@ -323,7 +347,7 @@ export default function InvestigationPanel({
                 >
                   {[3, 6, 10, 15].map((n) => (
                     <option key={n} value={n}>
-                      {n} nearest
+                      {n} closest
                     </option>
                   ))}
                 </select>
@@ -343,7 +367,7 @@ export default function InvestigationPanel({
                         <span className="num w-4 shrink-0 text-[10px] text-ink-4">{i + 1}</span>
                         <span className="min-w-0">
                           <span className="block truncate text-[12px] font-medium text-ink">
-                            {f.name || 'Unnamed feature'}
+                            {f.name || 'Unnamed site'}
                           </span>
                           <span className="block truncate text-[10px] text-ink-3">
                             {titleise(f.featureCategory)}
@@ -361,16 +385,16 @@ export default function InvestigationPanel({
             </>
           ) : !isNearbyOsmLoading ? (
             <p className="inset-surface rounded-md px-2.5 py-2 text-[11px] text-ink-2">
-              No mapped infrastructure within 20 km of this detection.
+              No mapped sites within 20 km of this fire.
             </p>
           ) : null}
         </Section>
 
         {/* 5. Detection history */}
         <Section
-          title="Detection history"
+          title="Past detections"
           kind="observed"
-          meta={historyLoading ? 'loading…' : `${passes.length} overpasses`}
+          meta={historyLoading ? 'loading…' : `${passes.length} passes`}
         >
           {historyLoading ? (
             <div className="inset-surface h-[88px] rounded-md" aria-hidden="true" />
@@ -378,12 +402,12 @@ export default function InvestigationPanel({
             <FrpTrajectory points={passes} />
           )}
           <p className="text-[11px] leading-relaxed text-ink-3">
-            Every FIRMS detection recorded within 1.5 km of this point, across all sensors.
+            Every satellite detection within 1.5 km of this spot, from all sensors.
           </p>
         </Section>
 
         {/* 6. Evidence */}
-        <Section title="Classification evidence" kind="model">
+        <Section title="Why the model thinks so" kind="model">
           {classification?.explanation?.length ? (
             <ul className="flex flex-col gap-1.5">
               {classification.explanation.map((line, i) => (
@@ -401,7 +425,7 @@ export default function InvestigationPanel({
             </ul>
           ) : (
             <p className="text-[11px] text-ink-3">
-              No feature-level explanation was recorded for this classification.
+              No supporting evidence was recorded for this detection.
             </p>
           )}
         </Section>

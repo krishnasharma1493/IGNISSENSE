@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { stagger } from '../motion/motion';
 
 /**
  * The em-dash is the only thing a missing value may render as.
@@ -93,10 +94,12 @@ interface BarProps {
   color: string;
   /** Emphasise this row as the winning class. */
   emphasis?: boolean;
+  /** Position in a list of bars; staggers the grow-in. */
+  index?: number;
 }
 
 /** A labelled proportion bar. Percentage is always shown as text, never colour alone. */
-export function Bar({ label, value, color, emphasis = false }: BarProps) {
+export function Bar({ label, value, color, emphasis = false, index = 0 }: BarProps) {
   const pct = Math.round(value * 100);
   return (
     <div className="flex flex-col gap-1">
@@ -121,8 +124,8 @@ export function Bar({ label, value, color, emphasis = false }: BarProps) {
         aria-label={`${label}: ${pct} percent`}
       >
         <div
-          className="h-full rounded-full transition-[width] duration-300"
-          style={{ width: `${pct}%`, backgroundColor: color, opacity: emphasis ? 1 : 0.55 }}
+          className="bar-grow h-full rounded-full transition-[width] duration-300"
+          style={stagger(index, { width: `${pct}%`, backgroundColor: color, opacity: emphasis ? 1 : 0.55 })}
         />
       </div>
     </div>
