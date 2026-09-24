@@ -97,6 +97,13 @@ OSM feature within 25 km is not classified at all. It is recorded as
 but it means remote wildfires are under-represented — 4,233 of 11,936 test wildfires were excluded
 by that gate.
 
+## Key Features
+
+- AI-powered industrial fire detection
+- Fire hotspot visualization on an interactive map
+- Risk classification using machine learning
+- Geospatial data integration
+
 ## Running it
 
 Three services, started independently.
