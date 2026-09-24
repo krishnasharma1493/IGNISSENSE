@@ -32,15 +32,29 @@ __pycache__/
 .system_generated/
 scratch/
 
-# Rendered video and demo footage — hosted on GitHub Releases, not in git
+# Rendered video, demo footage and the notes that go with it.
+# Kept locally; the film is attached to the GitHub Release instead.
 *.mp4
 *.mov
-demo-video/composition/
-demo-video/superseded/
+demo-video/
 
-# Agent and local tooling output
+# Agent and local tooling. These stay on disk so the tools keep working,
+# they just are not part of the published project.
 brag-output/
 brag-output-*/
 .superpowers/
-.impeccable/hook.cache.json
+.impeccable/
 skills-lock.json
+AppleSKILL.md
+CLAUDE.md
+
+# Working notes and early specification drafts, superseded by README.md
+ARCHITECTURE-PROMPT.txt
+PRDmain.md
+
+# Design mockups and agent session write-ups, not application code
+stitchDash/
+docs/
+
+# Empty placeholder; the real tests live in backend/src/**/*.test.ts
+tests/

@@ -127,20 +127,54 @@ and `backend/src/modules/classifications/featureContract.ts`.
 backend/     Express 5 + TypeScript + Mongoose. Ingestion loop, enrichment, API (:5001)
 frontend/    React 19 + Vite + MapLibre GL + TanStack Query (:5173)
 ml/          Training, labelling, inference. Python stdlib HTTP server, no framework (:8000)
-docs/        Backend hardening spec and plan
-stitchDash/  Static HTML design mockups from early exploration, not application code
 ```
 
-`ml/data/` is not in the repo. It reaches about 6 GB — a 1.6 GB India OSM extract, ESA WorldCover
-tiles, and FIRMS yearly archives. `ml/src/ingestion/fetch_sources.py` downloads all of it, and
-`model_metadata.json` records a SHA-256 for every FIRMS file used, so the training set can be
-reconstructed exactly. The full retraining sequence is in `CLAUDE.md`.
+Each backend domain lives in `src/modules/<name>/` as `<name>.model.ts` plus `<name>.routes.ts`
+and an optional `<name>.service.ts`, mounted in `app.ts` under `/api/v1/<name>`. Every response
+uses the envelope `{ success, data?, error? }`, which the frontend's axios interceptor depends on.
 
-## Notes on the documentation
+## Reproducing the model
 
-`CLAUDE.md` is the most accurate description of how the system currently behaves. `PRDmain.md` and
-`DESIGN.md` are the original specification and design direction; they describe intent and have
-drifted from the code in places, so check against source before relying on them.
+`ml/data/` is not in the repo. It reaches about 6 GB: a 1.6 GB India OSM extract, ESA WorldCover
+tiles, and the FIRMS yearly archives. `model_metadata.json` records a SHA-256 for every FIRMS file
+used, so the training set can be rebuilt exactly.
+
+Order matters here. The labelling step needs the WorldCover tile list that the candidate step
+writes out, and feature extraction runs through the production TypeScript extractor against a
+local mongod, never a production database.
+
+```bash
+cd ml
+python src/ingestion/fetch_sources.py firms --years 2022 2023 2024
+python src/ingestion/fetch_sources.py reference          # VNF flares, mining polygons, India PBF
+FIRMS_MAP_KEY=... python src/ingestion/fetch_sources.py firms-context   # NOAA-21 NRT 2024
+python src/features/osm_elements.py --pbf data/raw/reference/india-latest.osm.pbf \
+       --out data/interim/osm_elements_india.ndjson
+python src/labeling/build_labels.py candidates
+python src/ingestion/fetch_sources.py worldcover --tiles $(cat data/interim/worldcover_tiles.txt)
+python src/labeling/build_labels.py finalize
+
+# start a local mongod on 127.0.0.1:27018, then from backend/
+cd ../backend
+npx tsx src/scripts/training/loadTrainingContext.ts --reset \
+       --osm ../ml/data/interim/osm_elements_india.ndjson --firms-dir ../ml/data/raw/firms
+npx tsx src/scripts/training/loadTrainingContext.ts \
+       --firms-dir ../ml/data/raw/firms_context/VIIRS_NOAA21_NRT
+npx tsx src/scripts/training/extractTrainingFeatures.ts \
+       --input ../ml/data/interim/labels_for_extraction.csv \
+       --output ../ml/data/interim/features.ndjson
+
+cd ../ml
+python src/training/train.py      # writes xgb_fire_classifier_v2.* + model_metadata.json
+```
+
+`train.py` refuses to run if `feature_schema.json` disagrees with `classes.py`. To check that a
+rebuilt model matches what the service actually serves:
+
+```bash
+python src/inference/service.py 8000 &
+python src/evaluation/parity_check.py --url http://127.0.0.1:8000
+```
 
 ## License
 
