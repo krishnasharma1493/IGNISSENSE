@@ -48,9 +48,12 @@ skills-lock.json
 AppleSKILL.md
 CLAUDE.md
 
-# Working notes and early specification drafts, superseded by README.md
+# Working notes and early specification drafts, superseded by README.md.
+# DESIGN.md describes the dark Wise-brand system that the light direction
+# replaced, so it no longer matches the shipped frontend either.
 ARCHITECTURE-PROMPT.txt
 PRDmain.md
+DESIGN.md
 
 # Design mockups and agent session write-ups, not application code
 stitchDash/
