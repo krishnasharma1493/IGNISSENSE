@@ -72,7 +72,7 @@ WorldCover 2021. No label reads OSM or any model input feature. Training and val
 2023, test from 2024, and 0.5° blocks are assigned wholly to one partition so nothing leaks across
 the split.
 
-Held-out 2024 test performance, against the same labelling rules:
+Held-out 2024 test performance against the same labelling rules:
 
 | | Accuracy | Macro F1 |
 |---|---|---|
