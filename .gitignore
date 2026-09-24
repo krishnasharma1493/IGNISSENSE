@@ -31,3 +31,16 @@ __pycache__/
 # Antigravity artifacts (transcripts, tasks)
 .system_generated/
 scratch/
+
+# Rendered video and demo footage — hosted on GitHub Releases, not in git
+*.mp4
+*.mov
+demo-video/composition/
+demo-video/superseded/
+
+# Agent and local tooling output
+brag-output/
+brag-output-*/
+.superpowers/
+.impeccable/hook.cache.json
+skills-lock.json

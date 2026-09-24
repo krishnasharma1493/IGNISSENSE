@@ -52,6 +52,13 @@ models/xgb_fire_classifier*.joblib
 models/xgb_fire_classifier*.json
 !models/model_metadata.json
 !models/feature_schema.json
+!models/LIMITATIONS.json
+
+# The active artifact IS committed (5.2 MB + 8.2 MB): without it service.py has
+# nothing to load and the backend silently degrades to other_or_uncertain @ 0.50.
+# Superseded v1 and synthetic artifacts stay ignored.
+!models/xgb_fire_classifier_v2.joblib
+!models/xgb_fire_classifier_v2.json
 
 # Raw/processed data (retain gitkeeps and demo directories)
 data/raw/*

@@ -21,6 +21,7 @@ cd backend && npm install && npm run dev     # tsx watch, :5001
 npm run build && npm start                   # tsc -> dist, then node
 npm run typecheck                            # tsc --noEmit
 npm run lint                                 # eslint src/
+npm test                                     # vitest run (8 suites under src/)
 npm run seed                                 # one-shot OSM + FIRMS Delhi NCR seed
 npm run ingest:live                          # one-shot live FIRMS pull + classify
 
@@ -59,8 +60,12 @@ npm run build                                # tsc -b && vite build
 npm run lint                                 # oxlint
 ```
 
-There is no test runner configured anywhere. `tests/` is an empty placeholder. `verifyPipeline.ts` is
-a hand-rolled assertion script, not a framework.
+Vitest is configured in `backend/vitest.config.ts` and runs with `npm test` from `backend/`. It picks
+up `src/**/*.test.ts` — eight suites covering FIRMS normalisation, the ingestion service and its
+scheduler, catch-up, the India boundary check, geocoding, classification, and `featureContract.test.ts`,
+which parses `ml/src/training/classes.py` and fails if the 14-feature contract drifts. The root
+`tests/` directory is an empty placeholder; nothing lives there. `verifyPipeline.ts` is a separate
+hand-rolled assertion script for end-to-end checks against a running stack, not part of the Vitest run.
 
 ## Architecture
 
