@@ -3,12 +3,27 @@
 **Smart India Hackathon 2026 — Problem Statement 26162**
 AI-Based Detection and Classification of Industrial Fires
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+![TypeScript](https://img.shields.io/badge/TypeScript-7-3178C6?logo=typescript&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)
+![XGBoost](https://img.shields.io/badge/XGBoost-3.4.1-EC4E20)
+![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
+![MapLibre](https://img.shields.io/badge/MapLibre%20GL-6-395AFF)
+![MongoDB](https://img.shields.io/badge/MongoDB-Atlas-47A248?logo=mongodb&logoColor=white)
+
 IGNISSENSE pulls NASA FIRMS satellite thermal anomalies over India every five minutes, works out
 what is physically near each detection using OpenStreetMap, and runs an XGBoost model to decide
 which of six kinds of thermal event it is. Results land on a MapLibre dashboard with the reasoning
 attached, so an analyst can see why a pixel was called an industrial fire and not stubble burning.
 
 Ingestion runs India-wide. Delhi NCR is the demo region.
+
+![The IGNISSENSE map view, showing a detection at Hazira classified as an industrial fire](.github/assets/dashboard.jpg)
+
+A detection over Hazira, Surat. The model gives industrial fire 80%, and the panel shows the rest of
+the probability vector rather than just the winner. Persistence 0.95 and anomaly 0.90 are computed by
+rule in TypeScript, not by the classifier, which is why they are labelled separately. The nearest
+mapped site is ArcelorMittal Nippon Steel India at 1.1 km, which is the OSM context the model used.
 
 | Class | What it covers |
 |---|---|
