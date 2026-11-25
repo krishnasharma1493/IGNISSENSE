@@ -16,7 +16,8 @@ interface MapViewProps {
   hotspots: Hotspot[];
   classifications: Map<string, Classification>;
   facilities: Facility[];
-  selectedHotspotId: string | null;
+  /** The selected detection. It need not be in `hotspots`, which is filtered. */
+  selectedHotspot: Hotspot | null;
   onHotspotSelect: (id: string) => void;
   basemap: MapBasemap;
   renderMode: RenderMode;
@@ -45,7 +46,7 @@ export default function MapView({
   hotspots,
   classifications,
   facilities,
-  selectedHotspotId,
+  selectedHotspot,
   onHotspotSelect,
   basemap,
   renderMode,
@@ -123,11 +124,6 @@ export default function MapView({
       })),
     }),
     [facilities]
-  );
-
-  const selectedHotspot = useMemo(
-    () => (selectedHotspotId ? hotspots.find((h) => h._id === selectedHotspotId) ?? null : null),
-    [hotspots, selectedHotspotId]
   );
 
   const linkedFeatures = useMemo(

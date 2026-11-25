@@ -361,7 +361,10 @@ export default function InvestigationPanel({
                       onClick={() =>
                         onFocusFeature([f.longitude, f.latitude], `${f.name} · ${titleise(f.featureCategory)}`)
                       }
-                      className="ctl w-full justify-between gap-2 rounded-md px-2 py-1.5 text-left"
+                      // `.ctl` is unlayered CSS and centres its content, which
+                      // outranks a plain layered utility; `!` lets the row
+                      // spread name and distance to the edges.
+                      className="ctl w-full justify-between! gap-2 rounded-md px-2 py-1.5 text-left"
                     >
                       <span className="flex min-w-0 items-center gap-2">
                         <span className="num w-4 shrink-0 text-[10px] text-ink-4">{i + 1}</span>

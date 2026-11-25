@@ -95,6 +95,18 @@ export default function MapPage({ selectedHotspotId, onSelectHotspot }: MapPageP
   const { data: osmData, isLoading: osmLoading } = useNearbyOsmFeatures(lng, lat, 20000);
   const nearbyOsmFeatures = useMemo(() => osmData?.features ?? [], [osmData]);
 
+  /* The map draws the selection from the fetched record, not from `filtered`.
+     A detection opened from Alerts or the Dashboard can be older than the time
+     window, and looking it up in the filtered list left the map with no anchor,
+     no network and no camera move while the panel still showed it. The loaded
+     list covers the moment between a map click and the fetch returning. */
+  const mapSelection = useMemo(
+    () =>
+      selectedHotspot ??
+      (selectedHotspotId ? allHotspots.find((h) => h._id === selectedHotspotId) ?? null : null),
+    [selectedHotspot, selectedHotspotId, allHotspots]
+  );
+
   /* Selecting a detection re-opens the network layer. Handled at the event
      rather than in an effect, so it cannot cascade an extra render. */
   const selectHotspot = (id: string | null) => {
@@ -197,7 +209,7 @@ export default function MapPage({ selectedHotspotId, onSelectHotspot }: MapPageP
         hotspots={filtered}
         classifications={classifications}
         facilities={facilities}
-        selectedHotspotId={selectedHotspotId}
+        selectedHotspot={mapSelection}
         onHotspotSelect={selectHotspot}
         basemap={basemap}
         renderMode={renderMode}
